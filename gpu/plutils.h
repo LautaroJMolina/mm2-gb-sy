@@ -9,76 +9,78 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "kalloc.h"
-#include "minimap.h"
+#include "../kalloc.h"
+#include "../minimap.h"
 
 /* Chaining Options */
 
 /* structure for metadata and hits */
 // Sequence meta data
-typedef struct {
-    long i;          // read id
-    int seg_id;      // seg id
-    char name[200];  // name of the sequence
-    uint32_t len;    // name of the sequence
+typedef struct dpct_type_831276 {
+  long i;         // read id
+  int seg_id;     // seg id
+  char name[200]; // name of the sequence
+  uint32_t len;   // name of the sequence
 
-    // mi data
-    int n_alt;
-    int is_alt;  // reference sequences only
+  // mi data
+  int n_alt;
+  int is_alt; // reference sequences only
 
-    // sequence info
-    int qlen_sum;
+  // sequence info
+  int qlen_sum;
 } mm_seq_meta_t;
 
-typedef struct {
-    int max_iter, max_dist_x, max_dist_y, max_skip, bw, min_cnt, min_score,
-        is_cdna, n_seg;
-    float chn_pen_gap, chn_pen_skip;
+typedef struct dpct_type_535526 {
+  int max_iter, max_dist_x, max_dist_y, max_skip, bw, min_cnt, min_score,
+      is_cdna, n_seg;
+  float chn_pen_gap, chn_pen_skip;
 } Misc;
 
-typedef struct {
-    mm_seq_meta_t *refs;
-    int n_refs;
-    Misc misc;
+typedef struct dpct_type_122689 {
+  mm_seq_meta_t *refs;
+  int n_refs;
+  Misc misc;
 } input_meta_t;
 
-typedef struct {
-    mm_seq_meta_t seq;
+typedef struct dpct_type_123336 {
+  mm_seq_meta_t seq;
 
-    // minimap2 input data for reads
-    const char **qseqs;  // sequences for each segment          <- allocated in worker_for, freed in free_read after seeding
-    int *qlens;          // query length for each segment       <- allocated in worker_for, freed in free_read after seeding
-    int n_seg;           // number of segs
+  // minimap2 input data for reads
+  const char **qseqs; // sequences for each segment          <- allocated in
+                      // worker_for, freed in free_read after seeding
+  int *qlens; // query length for each segment       <- allocated in worker_for,
+              // freed in free_read after seeding
+  int n_seg;  // number of segs
 
-//DEBUG: for SCORE CHECK after chaining
+// DEBUG: for SCORE CHECK after chaining
 #if defined(DEBUG_CHECK) && 0
-    int32_t *f;
-    int64_t *p;
-#endif  // DEBUG_CHECK
-    int rep_len;
-    int frag_gap;
+  int32_t *f;
+  int64_t *p;
+#endif // DEBUG_CHECK
+  int rep_len;
+  int frag_gap;
 
-    // seeding outputs
-    uint64_t *mini_pos;  // minimizer positions                 <- allocated in 
-    int n_mini_pos;
+  // seeding outputs
+  uint64_t *mini_pos; // minimizer positions                 <- allocated in
+  int n_mini_pos;
 
-    // seeding output, updated in chaining
-    mm128_t *a;  // array of anchors
-    int64_t n;   // number of anchors = n_a
+  // seeding output, updated in chaining
+  mm128_t *a; // array of anchors
+  int64_t n;  // number of anchors = n_a
 
-    // chaining outputs
-    uint64_t *u;      // scores for chains
-    int n_u;          // number of chains formed from anchors == n_reg0
+  // chaining outputs
+  uint64_t *u; // scores for chains
+  int n_u;     // number of chains formed from anchors == n_reg0
 
 } chain_read_t;
 
 typedef struct seg_t {
-    size_t start_idx;
-    size_t end_idx;
-//DEBUG: used for debug plchain_cal_long_seg_range_dis LONG_SEG_RANGE_DIS
-#ifdef DEBUG_VERBOSE 
-    size_t start_segid;
-    size_t end_segid;
+  size_t start_idx;
+  size_t end_idx;
+// DEBUG: used for debug plchain_cal_long_seg_range_dis LONG_SEG_RANGE_DIS
+#ifdef DEBUG_VERBOSE
+  size_t start_segid;
+  size_t end_segid;
 #endif // DEBUG_VERBOSE
 } seg_t;
 
@@ -95,50 +97,59 @@ extern "C" {
 
 // <plchain.cu> gpu chaining methods
 // initialization and cleanup
-void init_stream_gpu(size_t *max_total_n, int *max_reads,
-                     int *min_n, char gpu_config_file[],  Misc misc);  // for stream_gpu
-void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t **batches,
-                        int *num_reads, int num_batch, void *km);  // for stream_gpu
+void init_stream_gpu(size_t *max_total_n, int *max_reads, int *min_n,
+                     char gpu_config_file[], Misc misc); // for stream_gpu
+void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt,
+                       chain_read_t **batches, int *num_reads, int num_batch,
+                       void *km);    // for stream_gpu
 void free_stream_gpu(int n_threads); // for stream_gpu free pinned memory
 // chaining method
-void chain_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t **in_arr_ptr, int *n_read_ptr, int thread_id, void* km);
+void chain_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt,
+                      chain_read_t **in_arr_ptr, int *n_read_ptr, int thread_id,
+                      void *km);
 
 /* <lchain.c> Chaining backtracking methods */
 uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f,
                              const int64_t *p, int32_t *v, int32_t *t,
                              int32_t min_cnt, int32_t min_sc, int32_t max_drop,
                              int32_t *n_u_, int32_t *n_v_);
-mm128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v, int32_t *v, mm128_t *a);
-
+mm128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v, int32_t *v,
+                   mm128_t *a);
 
 /* <map.c> Post Chaining helpers */
-Misc build_misc(const mm_idx_t *mi, const mm_mapopt_t *opt, const int64_t qlen_sum, const int n_seg);
+Misc build_misc(const mm_idx_t *mi, const mm_mapopt_t *opt,
+                const int64_t qlen_sum, const int n_seg);
 void post_chaining_helper(const mm_idx_t *mi, const mm_mapopt_t *opt,
                           chain_read_t *read, Misc misc, void *km);
 
 #ifdef __cplusplus
 }
-#endif  // __cplusplus
+#endif // __cplusplus
 
 /////////////////////////////////////////////////////
 ///////////         Free Input Struct   /////////////
 /////////////////////////////////////////////////////
 // free input_iter pointers except a, because it is freed seperately.
-static inline void free_read(chain_read_t *in, void* km) {
-    if (in->qseqs) kfree(km, in->qseqs);
-    if (in->qlens) kfree(km, in->qlens);
+static inline void free_read(chain_read_t *in, void *km) {
+  if (in->qseqs)
+    kfree(km, in->qseqs);
+  if (in->qlens)
+    kfree(km, in->qlens);
 
-//DEBUG: for SCORE CHECK after chaining
-#if defined(DEBUG_CHECK) && 0 
-    if (in->f) kfree(km, in->f);
-    if (in->p) kfree(km, in->p);
-    in->f = 0, in->p = 0;
+// DEBUG: for SCORE CHECK after chaining
+#if defined(DEBUG_CHECK) && 0
+  if (in->f)
+    kfree(km, in->f);
+  if (in->p)
+    kfree(km, in->p);
+  in->f = 0, in->p = 0;
 #endif
-    in->qseqs = 0, in->qlens = 0;
-    in->a = 0, in->u = 0;
+  in->qseqs = 0, in->qlens = 0;
+  in->a = 0, in->u = 0;
 }
 
 static inline void free_meta_struct(input_meta_t *meta, void *km) {
-    if (meta->refs) kfree(km, meta->refs);
+  if (meta->refs)
+    kfree(km, meta->refs);
 }
-#endif  // _PLUTILS_H_
+#endif // _PLUTILS_H_

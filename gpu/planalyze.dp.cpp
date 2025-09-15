@@ -2,42 +2,45 @@
  * synchornization. disabled unless DEBUG_LEVEL is set to analyze.
  * Enable individual verbose prints in planalyze.cu 
  */
-#include "planalyze.cuh"
+#define DPCT_PROFILING_ENABLED
+#include <sycl/sycl.hpp>
+#include <dpct/dpct.hpp>
+#include "planalyze.dp.hpp"
 
 #ifdef DEBUG_CHECK
-void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]){
-    cudaStreamSynchronize(stream.cudastream);
+void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]) {
+ dpct::device_ext &dev_ct1 = dpct::get_current_device();
+ sycl::queue &q_ct1 = dev_ct1.in_order_queue();
+    stream.cudastream->wait();
     size_t total_n = stream.host_mems[uid].total_n;
     chain_read_t* reads = stream.reads;
     deviceMemPtr* dev_mem = &stream.dev_mem;
     hostMemPtr* host_mem = &stream.host_mems[uid];
     size_t cut_num = stream.host_mems[uid].cut_num;
     unsigned int num_mid_seg, num_long_seg;
-    cudaMemcpy(&num_mid_seg, dev_mem->d_mid_seg_count, sizeof(unsigned int),
-        cudaMemcpyDeviceToHost);
+    q_ct1.memcpy(&num_mid_seg, dev_mem->d_mid_seg_count, sizeof(unsigned int))
+        .wait();
     num_long_seg = host_mem->long_segs_num[0] - (uid>0 ? stream.host_mems[uid-1].long_segs_num[0] : 0);
-    cudaMemcpy(&num_long_seg, dev_mem->d_long_seg_count, sizeof(unsigned int),
-        cudaMemcpyDeviceToHost);
+    q_ct1.memcpy(&num_long_seg, dev_mem->d_long_seg_count, sizeof(unsigned int))
+        .wait();
 #ifdef DEBUG_VERBOSE
     fprintf(stderr, "[DEBUG](MICROBATCH# %d) total segs: %lu, short:%lu mid: %u \n", uid, cut_num, cut_num - num_mid_seg - num_long_seg, num_mid_seg);
 #endif // DEBUG_VERBOSE
 
     int32_t* range = (int32_t*)malloc(sizeof(int32_t) * total_n);
-    cudaMemcpy(range, dev_mem->d_range, sizeof(int32_t) * total_n,
-                cudaMemcpyDeviceToHost);
+    q_ct1.memcpy(range, dev_mem->d_range, sizeof(int32_t) * total_n).wait();
     size_t* cut = (size_t*)malloc(sizeof(size_t) * cut_num);
-    cudaMemcpy(cut, dev_mem->d_cut, sizeof(size_t) * cut_num,
-                cudaMemcpyDeviceToHost);
+    q_ct1.memcpy(cut, dev_mem->d_cut, sizeof(size_t) * cut_num).wait();
 
     seg_t* mid_segs = (seg_t*)malloc(sizeof(seg_t) * num_mid_seg);
-    cudaMemcpy(mid_segs, dev_mem->d_mid_seg, sizeof(seg_t) * num_mid_seg,
-                cudaMemcpyDeviceToHost);
-
+    q_ct1.memcpy(mid_segs, dev_mem->d_mid_seg, sizeof(seg_t) * num_mid_seg).wait();
 
     longMemPtr* long_mem = &stream.long_mem;
     unsigned int num_aggregated_long_segs;
-    cudaMemcpy(&num_aggregated_long_segs, dev_mem->d_long_seg_count, sizeof(unsigned int),
-                cudaMemcpyDeviceToHost);
+    q_ct1
+        .memcpy(&num_aggregated_long_segs, dev_mem->d_long_seg_count,
+                sizeof(unsigned int))
+        .wait();
 #ifdef DEBUG_VERBOSE
     fprintf(stderr,
             "[DEBUG] aggreagated num of long segs %u, %u-%u belongs to this "
@@ -48,13 +51,17 @@ void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]){
 #endif // DEBUG_VERBOSE
 
     seg_t* long_segs = (seg_t*)malloc(sizeof(seg_t) * num_aggregated_long_segs);
-    cudaMemcpy(long_segs, dev_mem->d_long_seg, sizeof(seg_t) * num_aggregated_long_segs,
-                cudaMemcpyDeviceToHost);
+    q_ct1.memcpy(long_segs, dev_mem->d_long_seg,
+                 sizeof(seg_t) * num_aggregated_long_segs);
 
     size_t long_segs_total_n;
-    cudaMemcpy(&long_segs_total_n, dev_mem->d_total_n_long, sizeof(size_t), cudaMemcpyDeviceToHost);
+    q_ct1.memcpy(&long_segs_total_n, dev_mem->d_total_n_long, sizeof(size_t))
+        .wait();
     int32_t* long_range = (int32_t*)malloc(sizeof(int32_t) * long_segs_total_n);
-    cudaMemcpy(long_range, dev_mem->d_range_long, sizeof(int32_t) * long_segs_total_n, cudaMemcpyDeviceToHost);
+    q_ct1
+        .memcpy(long_range, dev_mem->d_range_long,
+                sizeof(int32_t) * long_segs_total_n)
+        .wait();
 
 // Calculate long segs total workload (sc pairs)
     size_t long_seg_sc_pairs = 0;
@@ -79,7 +86,13 @@ void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]){
 
     // calculate short kernel throughput
     float short_kernel_runtime_ms = 0;
-    cudaEventElapsedTime(&short_kernel_runtime_ms, stream.short_kernel_start_event[uid], stream.short_kernel_stop_event[uid]);
+    short_kernel_runtime_ms =
+        (stream.short_kernel_stop_event[uid]
+             ->get_profiling_info<sycl::info::event_profiling::command_end>() -
+         stream.short_kernel_start_event[uid]
+             ->get_profiling_info<
+                 sycl::info::event_profiling::command_start>()) /
+        1000000.0f;
     throughput[uid] = (total_sc_pairs - long_seg_sc_pairs) / short_kernel_runtime_ms / (float)1000;
 #ifdef DEBUG_VERBOSE
     fprintf(stderr, "[DEBUG] Short Seg kernel #%d throughput: %.2f Mpairs/s\n", uid, throughput[uid]);
@@ -145,7 +158,9 @@ void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]){
 
 #ifdef DEBUG_CHECK
 
-void planalyze_long_kernel(stream_ptr_t stream, float* throughput){
+void planalyze_long_kernel(stream_ptr_t stream, float *throughput) {
+ dpct::device_ext &dev_ct1 = dpct::get_current_device();
+ sycl::queue &q_ct1 = dev_ct1.in_order_queue();
     deviceMemPtr* dev_mem = &stream.dev_mem;
     longMemPtr* long_mem = &stream.long_mem;
 
@@ -156,10 +171,13 @@ void planalyze_long_kernel(stream_ptr_t stream, float* throughput){
 
 
     seg_t* long_segs = (seg_t*)malloc(sizeof(seg_t) * num_long_seg);
-    cudaMemcpy(long_segs, dev_mem->d_long_seg, sizeof(seg_t) * num_long_seg,
-                cudaMemcpyDeviceToHost);
+    q_ct1.memcpy(long_segs, dev_mem->d_long_seg, sizeof(seg_t) * num_long_seg)
+        .wait();
     int32_t* long_range = (int32_t*)malloc(sizeof(int32_t) * *(long_mem->total_long_segs_n));
-    cudaMemcpy(long_range, dev_mem->d_range_long, sizeof(int32_t) * *(long_mem->total_long_segs_n), cudaMemcpyDeviceToHost);
+    q_ct1
+        .memcpy(long_range, dev_mem->d_range_long,
+                sizeof(int32_t) * *(long_mem->total_long_segs_n))
+        .wait();
 #ifdef DEBUG_VERBOSE
     fprintf(stderr, "[DEBUG] Total n of anchors in long segs %lu\n", *long_mem->total_long_segs_n);
 #endif // DEBUG_VERBOSE
@@ -176,7 +194,12 @@ void planalyze_long_kernel(stream_ptr_t stream, float* throughput){
 
     // calculate long kernel throughput
     float long_kernel_runtime_ms = 0;
-    cudaEventElapsedTime(&long_kernel_runtime_ms, stream.long_kernel_event, stream.stopevent);
+    long_kernel_runtime_ms =
+        (stream.stopevent
+             ->get_profiling_info<sycl::info::event_profiling::command_end>() -
+         stream.long_kernel_event->get_profiling_info<
+             sycl::info::event_profiling::command_start>()) /
+        1000000.0f;
     float long_kernel_througput = long_seg_sc_pairs / long_kernel_runtime_ms / (float)1000;
 #ifdef DEBUG_VERBOSE
     fprintf(stderr, "[DEBUG] Long Seg kernel throughput: %.2f Mpairs/s\n", long_kernel_througput);

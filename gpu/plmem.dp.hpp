@@ -1,6 +1,8 @@
 #ifndef _PLMEM_CUH_
 #define _PLMEM_CUH_
-#include "hipify.cuh"
+#define DPCT_PROFILING_ENABLED
+#include <sycl/sycl.hpp>
+#include <dpct/dpct.hpp>
 #include "plchain.h"
 #include "plutils.h"
 
@@ -12,8 +14,7 @@
 #define OneM (OneK*1024)
 #define OneG (OneM*1024)
 
-
-typedef struct {
+typedef struct dpct_type_169195 {
     int index;       // read index / batch index
     int griddim;     // grid for range selection kernel. 
     int size;        // number of reads in the batch
@@ -48,7 +49,7 @@ typedef struct {
     size_t *cut_start_idx;
 } hostMemPtr;
 
-typedef struct {
+typedef struct dpct_type_171594 {
     // array size: number of cuts in the batch / long_seg_cut
     seg_t *long_segs_og_idx;                   // start & end idx of long segs in the original micro batch
     unsigned int *total_long_segs_num; // sum of mini batch long_segs_num
@@ -57,7 +58,7 @@ typedef struct {
     uint16_t *p_long;  // predecessor for long segs
 } longMemPtr;
 
-typedef struct {
+typedef struct dpct_type_317704 {
     int size;
     int griddim;
     size_t total_n;
@@ -102,10 +103,10 @@ typedef struct stream_ptr_t{
     hostMemPtr host_mems[MAX_MICRO_BATCH];
     longMemPtr long_mem;
     deviceMemPtr dev_mem;
-    cudaStream_t cudastream;
-    cudaEvent_t stopevent, startevent, long_kernel_event;
-    cudaEvent_t short_kernel_start_event[MAX_MICRO_BATCH];
-    cudaEvent_t short_kernel_stop_event[MAX_MICRO_BATCH];
+    dpct::queue_ptr cudastream;
+    dpct::event_ptr stopevent, startevent, long_kernel_event;
+    dpct::event_ptr short_kernel_start_event[MAX_MICRO_BATCH];
+    dpct::event_ptr short_kernel_stop_event[MAX_MICRO_BATCH];
     bool busy = false;
 } stream_ptr_t;
 

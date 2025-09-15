@@ -11,8 +11,8 @@ extern "C" {
 struct mm_bseq_file_s;
 typedef struct mm_bseq_file_s mm_bseq_file_t;
 
-typedef struct {
-	int l_seq, rid;
+typedef struct dpct_type_140965 {
+        int l_seq, rid;
 	char *name, *seq, *qual, *comment;
 } mm_bseq1_t;
 

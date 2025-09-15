@@ -37,16 +37,16 @@
 extern "C" {
 #endif
 
-typedef struct {
-	uint32_t n;
+typedef struct dpct_type_761767 {
+        uint32_t n;
 	uint32_t q_pos;
 	uint32_t q_span:31, flt:1;
 	uint32_t seg_id:31, is_tandem:1;
 	const uint64_t *cr;
 } mm_seed_t;
 
-typedef struct {
-	int n_u, n_a;
+typedef struct dpct_type_878183 {
+        int n_u, n_a;
 	uint64_t *u;
 	mm128_t *a;
 } mm_seg_t;

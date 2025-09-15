@@ -69,19 +69,19 @@ extern "C" {
 #endif
 
 // emulate 128-bit integers and arrays
-typedef struct { uint64_t x, y; } mm128_t;
-typedef struct { size_t n, m; mm128_t *a; } mm128_v;
+typedef struct dpct_type_109759 { uint64_t x, y; } mm128_t;
+typedef struct dpct_type_133303 { size_t n, m; mm128_t * a; } mm128_v;
 
 // minimap2 index
-typedef struct {
-	char *name;      // name of the db sequence
+typedef struct dpct_type_639688 {
+        char *name;      // name of the db sequence
 	uint64_t offset; // offset in mm_idx_t::S
 	uint32_t len;    // length
 	uint32_t is_alt;
 } mm_idx_seq_t;
 
-typedef struct {
-	int32_t b, w, k, flag;
+typedef struct dpct_type_305726 {
+        int32_t b, w, k, flag;
 	uint32_t n_seq;            // number of reference sequences
 	int32_t index;
 	int32_t n_alt;
@@ -93,16 +93,16 @@ typedef struct {
 } mm_idx_t;
 
 // minimap2 alignment
-typedef struct {
-	uint32_t capacity;                  // the capacity of cigar[]
+typedef struct dpct_type_133218 {
+        uint32_t capacity;                  // the capacity of cigar[]
 	int32_t dp_score, dp_max, dp_max2;  // DP score; score of the max-scoring segment; score of the best alternate mappings
 	uint32_t n_ambi:30, trans_strand:2; // number of ambiguous bases; transcript strand: 0 for unknown, 1 for +, 2 for -
 	uint32_t n_cigar;                   // number of cigar operations in cigar[]
 	uint32_t cigar[];
 } mm_extra_t;
 
-typedef struct {
-	int32_t id;             // ID for internal uses (see also parent below)
+typedef struct dpct_type_177048 {
+        int32_t id;             // ID for internal uses (see also parent below)
 	int32_t cnt;            // number of minimizers; if on the reverse strand
 	int32_t rid;            // reference index; if this is an alignment from inversion rescue
 	int32_t score;          // DP alignment score
@@ -119,14 +119,14 @@ typedef struct {
 } mm_reg1_t;
 
 // indexing and mapping options
-typedef struct {
-	short k, w, flag, bucket_bits;
+typedef struct dpct_type_467556 {
+        short k, w, flag, bucket_bits;
 	int64_t mini_batch_size;
 	uint64_t batch_size;
 } mm_idxopt_t;
 
-typedef struct {
-	int64_t flag;    // see MM_F_* macros
+typedef struct dpct_type_887224 {
+        int64_t flag;    // see MM_F_* macros
 	int seed;
 	int sdust_thres; // score threshold for SDUST; 0 to disable
 
@@ -186,8 +186,8 @@ typedef struct {
 } mm_mapopt_t;
 
 // index reader
-typedef struct {
-	int is_idx, n_parts;
+typedef struct dpct_type_168504 {
+        int is_idx, n_parts;
 	int64_t idx_size;
 	mm_idxopt_t opt;
 	FILE *fp_out;

@@ -69,13 +69,16 @@ INCLUDES += -I cJSON
 $(CJSON_OBJ): 
 	make -C cJSON
 
-# build kernel objs
+# include GPU
+INCLUDES += -I gpu
+
+# build sycl
 include gpu/gpu.mk
 
 
-# compile with nvcc/hipcc
-$(PROG):main.o libminimap2.a
-		$(GPU_CC) $(CFLAGS) $(GPU_FLAGS) main.o -o $@ -L. -lminimap2 $(LIBS)
+# compile with icpx and gpu object files
+$(PROG):gpu main.o libminimap2.a
+		$(GPU_CC) $(CFLAGS) $(GPU_FLAGS) main.o $(OBJS_GPU) -o $@ -L. -lminimap2 $(LIBS)
 
 minimap2-lite:example.o libminimap2.a
 		$(GPU_CC) $(CFLAGS)  $(GPU_FLAGS) $< -o $@ -L. -lminimap2 $(LIBS)
@@ -127,7 +130,7 @@ ksw2_exts2_neon.o:ksw2_exts2_sse.c ksw2.h kalloc.h
 
 # other non-file targets
 
-clean: cleangpu
+clean: gpu_clean
 		rm -fr gmon.out *.o a.out $(PROG) $(PROG_EXTRA) *~ *.a *.dSYM build dist mappy*.so mappy.c python/mappy.c mappy.egg*
 
 depend:

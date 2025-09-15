@@ -6,12 +6,13 @@
  * Enable individual verbose prints in planalyze.cu 
  */
 
-#include "hipify.cuh"
+#define DPCT_PROFILING_ENABLED
+#include <sycl/sycl.hpp>
+#include <dpct/dpct.hpp>
 #include "plchain.h"
 #include "plutils.h"
-#include "plmem.cuh"
-#include "plscore.cuh"
-
+#include "plmem.dp.hpp"
+#include "plscore.dp.hpp"
 
 #ifdef DEBUG_CHECK
 void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]);

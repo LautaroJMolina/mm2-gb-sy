@@ -7,8 +7,8 @@
 extern "C" {
 #endif
 
-typedef struct {
-	size_t capacity, available, n_blocks, n_cores, largest;
+typedef struct dpct_type_818658 {
+        size_t capacity, available, n_blocks, n_cores, largest;
     size_t meta_size;
 } km_stat_t;
 

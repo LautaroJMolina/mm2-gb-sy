@@ -1,85 +1,58 @@
-GPU				?= 		AMD
-CONFIG			+= $(if $(MAX_MICRO_BATCH),-DMICRO_BATCH=\($(MAX_MICRO_BATCH)\))
+GPU_CC := icpx
 
-ifeq ($(GPU), AMD)
-    GPUARCH    ?= $(strip $(shell rocminfo |grep -m 1 -E gfx[^0]{1} | sed -e 's/ *Name: *//'))
-else
-    GPUARCH    ?= sm_86
+#DPCT2001:53: You can link with more libraries by adding them here.
+LIB := 
+
+GPU_FLAGS := -fsycl $(CFLAGS)
+
+ifeq ($(shell which $(GPU_CC)),)
+    $(error ERROR - $(GPU_CC) compiler not found)
 endif
 
-###################################################
-############  	CPU Compile 	###################
-###################################################
-CU_SRC			= $(wildcard gpu/*.cu)
-CU_OBJS			= $(CU_SRC:%.cu=%.o)
-CU_PTX			= $(CU_SRC:%.cu=%.ptx)
-C_SRC			= $(wildcard gpu/*.c)
-OBJS			+= $(C_SRC:%.c=%.o)
-INCLUDES		+= -I gpu
+ROOT_DIR     := $(shell dirname $(shell which $(GPU_CC)))
+INCLUDE_DEBUG:= ../
+INCLUDE_SYCL := $(ROOT_DIR)/../include
+INCLUDE_CL   := $(ROOT_DIR)/../include/sycl
 
-###################################################
-############  	CUDA Compile 	###################
-###################################################
-COMPUTE_ARCH    = $(GPUARCH:sm_%=compute_%)
-NVCC 			= nvcc
-CUDAFLAGS		= -rdc=true -gencode arch=$(COMPUTE_ARCH),code=$(GPUARCH) -diag-suppress=177 -diag-suppress=1650 # supress unused variable / func warning
-CUDANALYZEFLAG	= -Xptxas -v 
-CUDATESTFLAG	= -G 
+TARGET_0_SRC_0 = ./gpu/planalyze.dp.cpp
+TARGET_0_OBJ_0 = ./gpu/planalyze.dp.o
+TARGET_0_FLAG_0 = -I $(INCLUDE_SYCL) -I $(INCLUDE_CL) ${FLAGS}
 
-###################################################
-############	HIP Compile		###################
-###################################################
-HIPCC			= hipcc
-HIPFLAGS		= -DUSEHIP --offload-arch=$(GPUARCH)
-HIPANALYZEFLAG  = -Rpass-analysis=kernel-resource-usage
-HIPTESTFLAGS	= -G -ggdb
-HIPLIBS			= -L${ROCM_PATH}/lib -lroctx64 -lroctracer64
+TARGET_0_SRC_1 = ./gpu/plchain.dp.cpp
+TARGET_0_OBJ_1 = ./gpu/plchain.dp.o
+TARGET_0_FLAG_1 = -I $(INCLUDE_SYCL) -I $(INCLUDE_CL) ${FLAGS}
 
-###################################################
-############	DEBUG Options	###################
-###################################################
-ifeq ($(GPU), AMD)
-	GPU_CC 		= $(HIPCC)
-	GPU_FLAGS	= $(HIPFLAGS)
-	GPU_TESTFL	= $(HIPTESTFLAGS)
-	GPU_ANALYZE	= $(HIPANALYZEFLAG)
-	LIBS		+= $(HIPLIBS)
-else
-	GPU_CC 		= $(NVCC)
-	GPU_FLAGS	= $(CUDAFLAGS)
-	GPU_ANALYZE = $(CUDANALYZEFLAG)
-	GPU_TESTFL	= $(CUDATESTFLAG)
-endif
+TARGET_0_SRC_2 = ./gpu/plmem.dp.cpp
+TARGET_0_OBJ_2 = ./gpu/plmem.dp.o
+TARGET_0_FLAG_2 = -I $(INCLUDE_SYCL) -I $(INCLUDE_CL) ${FLAGS}
 
-ifeq ($(DEBUG),analyze)
-	GPU_FLAGS	+= $(GPU_ANALYZE)
-endif
-ifeq ($(DEBUG),verbose)
-	GPU_FLAGS	+= $(GPU_ANALYZE)
-	GPU_FLAGS	+= $(GPU_TESTFL)
-endif
+TARGET_0_SRC_3 = ./gpu/plrange.dp.cpp
+TARGET_0_OBJ_3 = ./gpu/plrange.dp.o
+TARGET_0_FLAG_3 = -I $(INCLUDE_SYCL) -I $(INCLUDE_CL) ${FLAGS}
 
+TARGET_0_SRC_4 = ./gpu/plscore.dp.cpp
+TARGET_0_OBJ_4 = ./gpu/plscore.dp.o
+TARGET_0_FLAG_4 = -I $(INCLUDE_SYCL) -I $(INCLUDE_CL) ${FLAGS}
 
-%.o: %.cu
-	$(GPU_CC) -c $(GPU_FLAGS) $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $(CONFIG) $< -o $@
+.PHONY:all clean
+OBJS_GPU :=  ${TARGET_0_OBJ_0} ${TARGET_0_OBJ_1} ${TARGET_0_OBJ_2} ${TARGET_0_OBJ_3} ${TARGET_0_OBJ_4}
 
-%.ptx: %.cu
-	$(GPU_CC) -ptx -src-in-ptx $(GPU_FLAGS) $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $(CONFIG) $< -o $@
+gpu: $(OBJS_GPU)
 
-%.as: %.o
-	cuobjdump -all $< > $@
+$(TARGET_0_OBJ_0):$(TARGET_0_SRC_0)
+	$(GPU_CC) ${GPU_FLAGS} -c ${TARGET_0_SRC_0} -o ${TARGET_0_OBJ_0} $(TARGET_0_FLAG_4)
 
-cleangpu: 
-	rm -f $(CU_OBJS) $(CU_PTX)
+$(TARGET_0_OBJ_1):$(TARGET_0_SRC_1)
+	$(GPU_CC) ${GPU_FLAGS} -c ${TARGET_0_SRC_1} -o ${TARGET_0_OBJ_1} $(TARGET_0_FLAG_4)
 
-# profile:CFLAGS += -pg -g3
-# profile:all
-# 	perf record --call-graph=dwarf -e cycles:u time ./minimap2 -a test/MT-human.fa test/MT-orang.fa > test.sam
+$(TARGET_0_OBJ_2):$(TARGET_0_SRC_2)
+	$(GPU_CC) ${GPU_FLAGS} -c ${TARGET_0_SRC_2} -o ${TARGET_0_OBJ_2} $(TARGET_0_FLAG_4)
 
-cudep: gpu/.depend
+$(TARGET_0_OBJ_3):$(TARGET_0_SRC_3)
+	$(GPU_CC) ${GPU_FLAGS} -c ${TARGET_0_SRC_3} -o ${TARGET_0_OBJ_3} $(TARGET_0_FLAG_4)
 
-gpu/.depend: $(CU_SRC)
-	rm -f gpu/.depend
-	$(GPU_CC) -c $(GPU_FLAGS) $(CFLAGS)  $(CPPFLAGS) $(INCLUDES) -MM $^ > $@
+$(TARGET_0_OBJ_4):$(TARGET_0_SRC_4)
+	$(GPU_CC) ${GPU_FLAGS} -c ${TARGET_0_SRC_4} -o ${TARGET_0_OBJ_4} $(TARGET_0_FLAG_4)
 
-include gpu/.depend
+gpu_clean:
+	rm -f  ${OBJS_GPU}

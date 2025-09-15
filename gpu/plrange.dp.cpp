@@ -1,10 +1,11 @@
+#define DPCT_PROFILING_ENABLED
+#include <sycl/sycl.hpp>
+#include <dpct/dpct.hpp>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
-#include "plrange.cuh"
-#include "hipify.cuh"
-
+#include "plrange.dp.hpp"
 
 /* 
 
@@ -13,11 +14,12 @@ CUDA/HIP kernel for range selection using forward chaining
 */
 
 /* kernels begin */
-__constant__ int d_max_dist_x;
-__constant__ int d_max_iter;
-__constant__ int d_cut_check_anchors;
+inline dpct::constant_memory<int, 0> d_max_dist_x;
+inline dpct::constant_memory<int, 0> d_max_iter;
+inline dpct::constant_memory<int, 0> d_cut_check_anchors;
 
-inline __device__ int64_t range_binary_search(const int32_t* ax, const int32_t* rev, int64_t i, int64_t st_end){
+inline int64_t range_binary_search(const int32_t* ax, const int32_t* rev, int64_t i, int64_t st_end,
+                                   int d_max_dist_x){
     int64_t st_high = st_end, st_low=i;
     while (st_high != st_low) {
         int64_t mid = (st_high + st_low -1) / 2+1;
@@ -35,14 +37,16 @@ inline __device__ int64_t range_binary_search(const int32_t* ax, const int32_t* 
  * Forward Range Selection Kernel using global memory and binary range search. 
  * cut reads into segements where successor range = 0. 
 */
-__global__ void range_selection_kernel_binary(const int32_t* ax, const int32_t* rev, size_t *start_idx_arr, size_t *read_end_idx_arr, 
-    int32_t *range, size_t* cut, size_t* cut_start_idx, size_t total_n, range_kernel_config_t config){
-    int tid = threadIdx.x;
-    int bid = blockIdx.x;
+void range_selection_kernel_binary(const int32_t* ax, const int32_t* rev, size_t *start_idx_arr, size_t *read_end_idx_arr, 
+    int32_t *range, size_t* cut, size_t* cut_start_idx, size_t total_n, size_t anchor_per_block,
+    int d_max_dist_x, int d_max_iter, int d_cut_check_anchors){
+    auto item_ct1 = sycl::ext::oneapi::this_work_item::get_nd_item<3>();
+    int tid = item_ct1.get_local_id(2);
+    int bid = item_ct1.get_group(2);
 
     size_t start_idx = start_idx_arr[bid];
     size_t read_end_idx = read_end_idx_arr[bid];
-    size_t end_idx = start_idx + config.anchor_per_block;
+    size_t end_idx = start_idx + anchor_per_block;
     end_idx = end_idx > read_end_idx ? read_end_idx : end_idx;
     size_t cut_idx = cut_start_idx[bid];
     if(tid == 0 && (bid == 0 || read_end_idx_arr[bid-1] != read_end_idx)){
@@ -51,7 +55,8 @@ __global__ void range_selection_kernel_binary(const int32_t* ax, const int32_t* 
     cut_idx++;
     int range_op[3] = {16, 512, 5000};  // Range Options
     range_op[2] = d_max_iter;
-    for (size_t i = start_idx + tid; i < end_idx; i += blockDim.x) {
+    for (size_t i = start_idx + tid; i < end_idx;
+         i += item_ct1.get_local_range(2)) {
         size_t st_max = i + d_max_iter;
         st_max = st_max < read_end_idx ? st_max : read_end_idx -1;
         size_t st;
@@ -64,11 +69,11 @@ __global__ void range_selection_kernel_binary(const int32_t* ax, const int32_t* 
                 break;
             }
         }
-        st = range_binary_search(ax, rev, i, st);
+        st = range_binary_search(ax, rev, i, st, d_max_dist_x);
         range[i] = st - i;
 
-        if (tid >= blockDim.x - d_cut_check_anchors &&
-            blockDim.x - tid + i <= end_idx) {
+        if (tid >= item_ct1.get_local_range(2) - d_cut_check_anchors &&
+            item_ct1.get_local_range(2) - tid + i <= end_idx) {
             if (st == i) cut[cut_idx] = i+1;
         }
         cut_idx++;
@@ -79,16 +84,22 @@ __global__ void range_selection_kernel_binary(const int32_t* ax, const int32_t* 
  * Forward Range Selection Kernel using global memory and linear range search.
  * cut reads into segements where successor range = 0.
  */
-__global__ void range_selection_kernel_naive(const int32_t* ax, const int32_t* rev, size_t *start_idx_arr, size_t *read_end_idx_arr, 
-    int32_t *range, size_t* cut, size_t* cut_start_idx, size_t total_n, range_kernel_config_t config){
-    int tid = threadIdx.x;
-    int bid = blockIdx.x;
+void range_selection_kernel_naive(const int32_t* ax, const int32_t* rev, size_t *start_idx_arr, size_t *read_end_idx_arr, 
+    int32_t *range, size_t* cut, size_t* cut_start_idx, size_t total_n, range_kernel_config_t config,
+    int d_max_dist_x, int d_max_iter, int d_cut_check_anchors){
+    auto item_ct1 = sycl::ext::oneapi::this_work_item::get_nd_item<3>();
+    int tid = item_ct1.get_local_id(2);
+    int bid = item_ct1.get_group(2);
 
     size_t start_idx = start_idx_arr[bid];
     size_t read_end_idx = read_end_idx_arr[bid];
     size_t end_idx = start_idx + config.anchor_per_block;
     end_idx = end_idx > read_end_idx ? read_end_idx : end_idx;
-    assert(end_idx == (bid +1 < gridDim.x) ? start_idx_arr[bid+1]: total_n);
+    assert(end_idx == (bid + 1 <
+                       sycl::ext::oneapi::this_work_item::get_nd_item<3>()
+                           .get_group_range(2))
+               ? start_idx_arr[bid + 1]
+               : total_n);
     // if(end_idx_ref != end_idx){
     //     if (tid == 0){
     //         int grimdim = gridDim.x;
@@ -103,7 +114,8 @@ __global__ void range_selection_kernel_naive(const int32_t* ax, const int32_t* r
         cut[cut_idx] = start_idx;
     }
     cut_idx++;
-    for (size_t i = start_idx + tid; i < end_idx; i += blockDim.x){
+    for (size_t i = start_idx + tid; i < end_idx;
+         i += item_ct1.get_local_range(2)) {
         size_t st = i + d_max_iter;
         st = i + d_max_iter < read_end_idx ? st : read_end_idx -1;
         assert(st < total_n);
@@ -115,7 +127,8 @@ __global__ void range_selection_kernel_naive(const int32_t* ax, const int32_t* r
         }
         range[i] = st - i;
 
-        if (tid >= blockDim.x - d_cut_check_anchors && blockDim.x - tid + i <= end_idx) {
+        if (tid >= item_ct1.get_local_range(2) - d_cut_check_anchors &&
+            item_ct1.get_local_range(2) - tid + i <= end_idx) {
             if (st == i) cut[cut_idx] = i+1;
         }
         cut_idx++;
@@ -222,33 +235,65 @@ extern "C" {
 /* host functions begin */
 range_kernel_config_t range_kernel_config;
 
-void plrange_upload_misc(Misc misc){
-#ifdef USEHIP
-    hipMemcpyToSymbol(HIP_SYMBOL(d_max_dist_x), &misc.max_dist_x, sizeof(int));
-    hipMemcpyToSymbol(HIP_SYMBOL(d_max_iter), &misc.max_iter, sizeof(int));
-    hipMemcpyToSymbol(HIP_SYMBOL(d_cut_check_anchors),
-                      &range_kernel_config.cut_check_anchors, sizeof(int));
-#else
-    cudaCheck();
-    cudaMemcpyToSymbol(d_max_dist_x, &misc.max_dist_x, sizeof(int));
-    cudaMemcpyToSymbol(d_max_iter, &misc.max_iter, sizeof(int));
-    cudaMemcpyToSymbol(d_cut_check_anchors,
-                       &range_kernel_config.cut_check_anchors, sizeof(int));
-#endif  // USEHIP
-    cudaCheck();
+void plrange_upload_misc(Misc misc) {
+ dpct::device_ext &dev_ct1 = dpct::get_current_device();
+ sycl::queue &q_ct1 = dev_ct1.in_order_queue();
+    // cudaCheck();
+    q_ct1.memcpy(d_max_dist_x.get_ptr(), &misc.max_dist_x, sizeof(int));
+    q_ct1.memcpy(d_max_iter.get_ptr(), &misc.max_iter, sizeof(int));
+    q_ct1
+        .memcpy(d_cut_check_anchors.get_ptr(),
+                &range_kernel_config.cut_check_anchors, sizeof(int))
+        .wait();
+    // cudaCheck();
 }
 
-void plrange_async_range_selection(deviceMemPtr* dev_mem, cudaStream_t* stream) {
+void plrange_async_range_selection(deviceMemPtr *dev_mem,
+                                   dpct::queue_ptr *stream) {
     size_t total_n = dev_mem->total_n, cut_num = dev_mem->num_cut;
     int griddim = dev_mem->griddim;
-    dim3 DimBlock(range_kernel_config.blockdim, 1, 1);
-    dim3 DimGrid(griddim, 1, 1);
+    dpct::dim3 DimBlock(range_kernel_config.blockdim, 1, 1);
+    dpct::dim3 DimGrid(griddim, 1, 1);
 
     // Run kernel
-    range_selection_kernel_binary<<<DimGrid, DimBlock, 0, *stream>>>(
-        dev_mem->d_ax, dev_mem->d_xrev, dev_mem->d_start_idx, dev_mem->d_read_end_idx,
-        dev_mem->d_range, dev_mem->d_cut, dev_mem->d_cut_start_idx, total_n, range_kernel_config);
-    cudaCheck();
+    /*
+    DPCT1049:0: The work-group size passed to the SYCL kernel may exceed the
+    limit. To get the device limit, query info::device::max_work_group_size.
+    Adjust the work-group size if needed.
+    */
+  {
+    d_max_dist_x.init(**stream);
+    d_max_iter.init(**stream);
+    d_cut_check_anchors.init(**stream);
+
+    (*stream)->submit([&](sycl::handler &cgh) {
+      auto d_max_dist_x_ptr_ct1 = d_max_dist_x.get_ptr();
+      auto d_max_iter_ptr_ct1 = d_max_iter.get_ptr();
+      auto d_cut_check_anchors_ptr_ct1 = d_cut_check_anchors.get_ptr();
+
+      const int32_t *dev_mem_d_ax_ct0 = dev_mem->d_ax;
+      const int32_t *dev_mem_d_xrev_ct1 = dev_mem->d_xrev;
+      auto dev_mem_d_start_idx_ct2 = dev_mem->d_start_idx;
+      auto dev_mem_d_read_end_idx_ct3 = dev_mem->d_read_end_idx;
+      auto dev_mem_d_range_ct4 = dev_mem->d_range;
+      auto dev_mem_d_cut_ct5 = dev_mem->d_cut;
+      auto dev_mem_d_cut_start_idx_ct6 = dev_mem->d_cut_start_idx;
+
+      auto tmp_anchors_per_block = range_kernel_config.anchor_per_block;
+
+      cgh.parallel_for(
+          sycl::nd_range<3>(DimGrid * DimBlock, DimBlock),
+          [=](sycl::nd_item<3> item_ct1) {
+            range_selection_kernel_binary(
+                dev_mem_d_ax_ct0, dev_mem_d_xrev_ct1, dev_mem_d_start_idx_ct2,
+                dev_mem_d_read_end_idx_ct3, dev_mem_d_range_ct4,
+                dev_mem_d_cut_ct5, dev_mem_d_cut_start_idx_ct6, total_n,
+                tmp_anchors_per_block, *d_max_dist_x_ptr_ct1, *d_max_iter_ptr_ct1,
+                *d_cut_check_anchors_ptr_ct1);
+          });
+    });
+  }
+    // cudaCheck();
 #ifdef DEBUG_PRINT
     // fprintf(stderr, "[Info] %s (%s:%d): Batch total_n %lu, Range Kernel Launched, grid %d cut %d\n", __func__, __FILE__, __LINE__, total_n, DimGrid.x, cut_num);
 #endif
@@ -257,8 +302,8 @@ void plrange_async_range_selection(deviceMemPtr* dev_mem, cudaStream_t* stream) 
 void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
     size_t total_n = dev_mem->total_n, cut_num = dev_mem->num_cut;
     int griddim = dev_mem->griddim;
-    dim3 DimBlock(range_kernel_config.blockdim, 1, 1);
-    dim3 DimGrid(griddim,1,1);
+    dpct::dim3 DimBlock(range_kernel_config.blockdim, 1, 1);
+    dpct::dim3 DimGrid(griddim, 1, 1);
 
     plrange_upload_misc(misc);
 
@@ -267,12 +312,46 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
         fprintf(stderr, "[Info] %s (%s:%d): Grim Dim: %d Cut: %zu Anchors: %zu\n", __func__, __FILE__, __LINE__, DimGrid.x,
                 cut_num, total_n);
 #endif
-    range_selection_kernel_binary<<<DimGrid, DimBlock>>>(
-        dev_mem->d_ax, dev_mem->d_xrev, dev_mem->d_start_idx, dev_mem->d_read_end_idx,
-        dev_mem->d_range, dev_mem->d_cut, dev_mem->d_cut_start_idx, total_n, range_kernel_config);
-    cudaCheck();
-    cudaDeviceSynchronize();
-    cudaCheck();
+    /*
+    DPCT1049:1: The work-group size passed to the SYCL kernel may exceed the
+    limit. To get the device limit, query info::device::max_work_group_size.
+    Adjust the work-group size if needed.
+    */
+  {
+    d_max_dist_x.init();
+    d_max_iter.init();
+    d_cut_check_anchors.init();
+
+    dpct::get_in_order_queue().submit([&](sycl::handler &cgh) {
+      auto d_max_dist_x_ptr_ct1 = d_max_dist_x.get_ptr();
+      auto d_max_iter_ptr_ct1 = d_max_iter.get_ptr();
+      auto d_cut_check_anchors_ptr_ct1 = d_cut_check_anchors.get_ptr();
+
+      const int32_t *dev_mem_d_ax_ct0 = dev_mem->d_ax;
+      const int32_t *dev_mem_d_xrev_ct1 = dev_mem->d_xrev;
+      auto dev_mem_d_start_idx_ct2 = dev_mem->d_start_idx;
+      auto dev_mem_d_read_end_idx_ct3 = dev_mem->d_read_end_idx;
+      auto dev_mem_d_range_ct4 = dev_mem->d_range;
+      auto dev_mem_d_cut_ct5 = dev_mem->d_cut;
+      auto dev_mem_d_cut_start_idx_ct6 = dev_mem->d_cut_start_idx;
+
+      auto tmp_anchors_per_block = range_kernel_config.anchor_per_block;
+
+      cgh.parallel_for(
+          sycl::nd_range<3>(DimGrid * DimBlock, DimBlock),
+          [=](sycl::nd_item<3> item_ct1) {
+            range_selection_kernel_binary(
+                dev_mem_d_ax_ct0, dev_mem_d_xrev_ct1, dev_mem_d_start_idx_ct2,
+                dev_mem_d_read_end_idx_ct3, dev_mem_d_range_ct4,
+                dev_mem_d_cut_ct5, dev_mem_d_cut_start_idx_ct6, total_n,
+                tmp_anchors_per_block, *d_max_dist_x_ptr_ct1, *d_max_iter_ptr_ct1,
+                *d_cut_check_anchors_ptr_ct1);
+          });
+    });
+  }
+    // cudaCheck();
+    dpct::get_current_device().queues_wait_and_throw();
+    // cudaCheck();
 #ifdef DEBUG_PRINT
     fprintf(stderr, "[Info] %s: range calculation success\n", __func__);
 #endif
