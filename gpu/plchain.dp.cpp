@@ -529,7 +529,7 @@ void init_stream_gpu(size_t *total_n, int *max_reads, int *min_n,
   fprintf(stderr, "[Info::%s] gpu initialized for chaining with config %s\n",
           __func__, gpu_config_file);
   fprintf(stderr, "[Info::%s] Compile time config: \n", __func__);
-  fprintf(stderr, "\t\t USE CUDA\n");
+  // fprintf(stderr, "\t\t USE CUDA\n");
 #ifdef MAX_MICRO_BATCH
   fprintf(stderr, "\t\t MAX MICRO BATCH       \t%d\n", MAX_MICRO_BATCH);
 #endif // MAX_MICRO_BATCH
@@ -606,9 +606,9 @@ void free_stream_gpu(int n_threads) {
   */
   // dpct::get_current_device().get_memory_info(gpu_free_mem, gpu_total_mem);
 #ifdef DEBUG_PRINT
-  fprintf(stderr,
-          "[Info] GPU free mem: %f GB, total mem: %f GB (after cleanup) \n",
-          (float)gpu_free_mem / OneG, (float)gpu_total_mem / OneG);
+  // fprintf(stderr,
+  //         "[Info] GPU free mem: %f GB, total mem: %f GB (after cleanup) \n",
+  //         (float)gpu_free_mem / OneG, (float)gpu_total_mem / OneG);
 #endif
 }
 

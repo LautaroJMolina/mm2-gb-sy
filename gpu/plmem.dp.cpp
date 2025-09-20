@@ -139,10 +139,10 @@ void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
   */
   // dpct::get_current_device().get_memory_info(gpu_free_mem, gpu_total_mem);
 #ifdef DEBUG_PRINT
-  fprintf(stderr,
-          "[Info] GPU free mem: %f GB, total mem: %f GB (before alloc long seg "
-          "buffer) \n",
-          (float)gpu_free_mem / OneG, (float)gpu_total_mem / OneG);
+  // fprintf(stderr,
+  //         "[Info] GPU free mem: %f GB, total mem: %f GB (before alloc long seg "
+  //         "buffer) \n",
+  //         (float)gpu_free_mem / OneG, (float)gpu_total_mem / OneG);
 #endif
 
   // long seg buffer
@@ -858,8 +858,8 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
   */
   // dpct::get_current_device().get_memory_info(gpu_free_mem, gpu_total_mem);
 #ifdef DEBUG_PRINT
-  fprintf(stderr, "[Info] GPU free mem: %f GB, total mem: %f GB\n",
-          (float)gpu_free_mem / OneG, (float)gpu_total_mem / OneG);
+  // fprintf(stderr, "[Info] GPU free mem: %f GB, total mem: %f GB\n",
+  //         (float)gpu_free_mem / OneG, (float)gpu_total_mem / OneG);
 #endif
 
   *max_total_n_ = max_anchors_stream * score_kernel_config.micro_batch;
