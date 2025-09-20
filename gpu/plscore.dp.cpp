@@ -1,4 +1,7 @@
+#ifdef DEBUG_PRINT
 #define DPCT_PROFILING_ENABLED
+#endif
+
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
 #include <stdint.h>
@@ -575,7 +578,8 @@ void plscore_upload_misc(Misc input_misc) {
 }
 
 void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
-                                        dpct::queue_ptr *stream) {
+                                        dpct::queue_ptr *stream,
+                                        sycl::event *stop_event_short) {
     size_t total_n = dev_mem->total_n;
     size_t cut_num = dev_mem->num_cut;
     size_t buffer_size_long = dev_mem->buffer_size_long;
@@ -591,7 +595,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     long_seg_cutoff.init(**stream);
     mid_seg_cutoff.init(**stream);
 
-    (*stream)->submit([&](sycl::handler &cgh) {
+    *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
       auto misc_ptr_ct1 = misc.get_ptr();
       auto long_seg_cutoff_ptr_ct1 = long_seg_cutoff.get_ptr();
       auto mid_seg_cutoff_ptr_ct1 = mid_seg_cutoff.get_ptr();
@@ -638,7 +642,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     long_seg_cutoff.init(**stream);
     mid_seg_cutoff.init(**stream);
 
-    (*stream)->submit([&](sycl::handler &cgh) {
+    *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
       auto misc_ptr_ct1 = misc.get_ptr();
       auto long_seg_cutoff_ptr_ct1 = long_seg_cutoff.get_ptr();
       auto mid_seg_cutoff_ptr_ct1 = mid_seg_cutoff.get_ptr();

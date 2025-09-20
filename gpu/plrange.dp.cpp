@@ -1,4 +1,7 @@
+#ifdef DEBUG_PRINT
 #define DPCT_PROFILING_ENABLED
+#endif
+
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
 #include <stdint.h>
@@ -249,7 +252,8 @@ void plrange_upload_misc(Misc misc) {
 }
 
 void plrange_async_range_selection(deviceMemPtr *dev_mem,
-                                   dpct::queue_ptr *stream) {
+                                   dpct::queue_ptr *stream,
+                                   sycl::event *start_event_short) {
     size_t total_n = dev_mem->total_n, cut_num = dev_mem->num_cut;
     int griddim = dev_mem->griddim;
     dpct::dim3 DimBlock(range_kernel_config.blockdim, 1, 1);
@@ -266,7 +270,7 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
     d_max_iter.init(**stream);
     d_cut_check_anchors.init(**stream);
 
-    (*stream)->submit([&](sycl::handler &cgh) {
+    *start_event_short = (*stream)->submit([&](sycl::handler &cgh) {
       auto d_max_dist_x_ptr_ct1 = d_max_dist_x.get_ptr();
       auto d_max_iter_ptr_ct1 = d_max_iter.get_ptr();
       auto d_cut_check_anchors_ptr_ct1 = d_cut_check_anchors.get_ptr();

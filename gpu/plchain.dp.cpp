@@ -1,4 +1,7 @@
+#ifdef DEBUG_PRINT
 #define DPCT_PROFILING_ENABLED
+#endif
+
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
 #include <assert.h>
@@ -224,9 +227,9 @@ int plchain_post_gpu_helper(streamSetup_t stream_setup, int stream_id,
 
   float kernel_runtime_ms[MAX_MICRO_BATCH + 1] = {0};
   float kernel_throughput_anchors[MAX_MICRO_BATCH + 1] = {0};
-  cudaEventElapsedTime(&kernel_runtime_ms[score_kernel_config.micro_batch],
-                       stream_setup.streams[stream_id].long_kernel_event,
-                       stream_setup.streams[stream_id].stopevent);
+  uint64_t start_time_long = stream_setup.streams[stream_id].long_kernel_event->get_profiling_info<sycl::info::event_profiling::command_start>();
+  uint64_t end_time_long = stream_setup.streams[stream_id].stopevent->get_profiling_info<sycl::info::event_profiling::command_end>();
+  kernel_runtime_ms[score_kernel_config.micro_batch] = (end_time_long - start_time_long) / 1000000.0f;
   kernel_throughput_anchors[score_kernel_config.micro_batch] =
       *stream_setup.streams[stream_id].long_mem.total_long_segs_n /
       kernel_runtime_ms[score_kernel_config.micro_batch] / (float)1000;
@@ -267,10 +270,9 @@ int plchain_post_gpu_helper(streamSetup_t stream_setup, int stream_id,
     // accumulate n_reads
     n_reads += stream_setup.streams[stream_id].host_mems[uid].size;
 #ifdef DEBUG_PRINT
-    cudaEventElapsedTime(
-        &kernel_runtime_ms[uid],
-        stream_setup.streams[stream_id].short_kernel_start_event[uid],
-        stream_setup.streams[stream_id].short_kernel_stop_event[uid]);
+    uint64_t start_time_short = stream_setup.streams[stream_id].short_kernel_start_event[uid]->get_profiling_info<sycl::info::event_profiling::command_start>();
+    uint64_t end_time_short = stream_setup.streams[stream_id].short_kernel_stop_event[uid]->get_profiling_info<sycl::info::event_profiling::command_end>();
+    kernel_runtime_ms[uid] = (end_time_short - start_time_short) / 1000000;
     kernel_throughput_anchors[uid] =
         (stream_setup.streams[stream_id].host_mems[uid].total_n -
          total_n_long_segs) /
@@ -434,23 +436,15 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc,
     // step2: copy to device
     plmem_async_h2d_short_memcpy(&stream_setup.streams[stream_id], uid);
     // step3: range selection
-#ifdef DEBUG_PRINT
-    cudaEventRecord(
-        stream_setup.streams[stream_id].short_kernel_start_event[uid],
-        stream_setup.streams[stream_id].cudastream);
-#endif // DEBUG_PRINT
     plrange_async_range_selection(&stream_setup.streams[stream_id].dev_mem,
-                                  &stream_setup.streams[stream_id].cudastream);
+                                  &stream_setup.streams[stream_id].cudastream,
+                                  stream_setup.streams[stream_id].short_kernel_start_event[uid]);
     // step4: score generation for short and mid segs
     plscore_async_short_mid_forward_dp(
         &stream_setup.streams[stream_id].dev_mem,
-        &stream_setup.streams[stream_id].cudastream);
-#ifdef DEBUG_PRINT
-    cudaEventRecord(
-        stream_setup.streams[stream_id].short_kernel_stop_event[uid],
-        stream_setup.streams[stream_id].cudastream);
-#endif // DEBUG_PRINT
-       // step5: copy short and mid results back
+        &stream_setup.streams[stream_id].cudastream,
+        stream_setup.streams[stream_id].short_kernel_stop_event[uid]);
+    // step5: copy short and mid results back
     plmem_async_d2h_short_memcpy(&stream_setup.streams[stream_id], uid);
     // update index
     read_start = read_end;

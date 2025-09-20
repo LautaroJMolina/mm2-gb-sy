@@ -1,7 +1,10 @@
 #ifndef _PLSCORE_CUH_
 #define _PLSCORE_CUH_
 
+#ifdef DEBUG_PRINT
 #define DPCT_PROFILING_ENABLED
+#endif
+
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
 #include "../mmpriv.h"
@@ -17,7 +20,8 @@ void plscore_upload_misc(Misc misc);
 void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
                                     dpct::queue_ptr *stream);
 void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
-                                        dpct::queue_ptr *stream);
+                                        dpct::queue_ptr *stream,
+                                        sycl::event *stop_event_short);
 void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
                                    dpct::queue_ptr *stream);
 

@@ -2,7 +2,11 @@
  * synchornization. disabled unless DEBUG_LEVEL is set to analyze.
  * Enable individual verbose prints in planalyze.cu 
  */
+
+#ifdef DEBUG_PRINT
 #define DPCT_PROFILING_ENABLED
+#endif
+
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
 #include "planalyze.dp.hpp"

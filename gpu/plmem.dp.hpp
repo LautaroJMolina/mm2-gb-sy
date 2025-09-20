@@ -1,6 +1,10 @@
 #ifndef _PLMEM_CUH_
 #define _PLMEM_CUH_
+
+#ifdef DEBUG_PRINT
 #define DPCT_PROFILING_ENABLED
+#endif
+
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
 #include "plchain.h"

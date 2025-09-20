@@ -1,6 +1,9 @@
 /* GPU memory management  */
 
+#ifdef DEBUG_PRINT
 #define DPCT_PROFILING_ENABLED
+#endif
+
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
 #include "plmem.dp.hpp"
