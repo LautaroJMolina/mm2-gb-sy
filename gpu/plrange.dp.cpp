@@ -239,17 +239,17 @@ extern "C" {
 /* host functions begin */
 range_kernel_config_t range_kernel_config;
 
-void plrange_upload_misc(Misc misc) {
+void plrange_upload_misc(Misc misc) try {
   dpct::device_ext &dev_ct1 = dpct::get_current_device();
   sycl::queue &q_ct1 = dev_ct1.in_order_queue();
-  // sycl_check();
   q_ct1.memcpy(d_max_dist_x.get_ptr(), &misc.max_dist_x, sizeof(int));
   q_ct1.memcpy(d_max_iter.get_ptr(), &misc.max_iter, sizeof(int));
-  q_ct1
-      .memcpy(d_cut_check_anchors.get_ptr(),
-              &range_kernel_config.cut_check_anchors, sizeof(int))
-      .wait();
-  // sycl_check();
+  q_ct1.memcpy(d_cut_check_anchors.get_ptr(), &range_kernel_config.cut_check_anchors, sizeof(int));
+  q_ct1.wait_and_throw();
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
 }
 
 void plrange_async_range_selection(deviceMemPtr *dev_mem,
@@ -358,9 +358,9 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
   try {
     dpct::get_current_device().queues_wait_and_throw();
   } catch (const sycl::exception &e) {
-    fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what()); \
-    fflush(stderr);                                                                        \
-    exit(EXIT_FAILURE);                                                                    \
+    fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+    fflush(stderr);
+    exit(EXIT_FAILURE);
   }
 
 #ifdef DEBUG_PRINT

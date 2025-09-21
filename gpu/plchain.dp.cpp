@@ -195,11 +195,10 @@ int plchain_schedule_stream(const streamSetup_t stream_setup,
     }
   }
   return streamid;
-}
-catch (sycl::exception const &exc) {
-  std::cerr << exc.what() << "Exception caught at file:" << __FILE__
-            << ", line:" << __LINE__ << std::endl;
-  std::exit(1);
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
 }
 
 // Global variable for debug prints. Throughput, runtime & mem usage
@@ -585,9 +584,9 @@ void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt,
   try {
     stream_setup.streams[t].cudastream->wait_and_throw();
   } catch (const sycl::exception &e) {
-    fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what()); \
-    fflush(stderr);                                                                        \
-    exit(EXIT_FAILURE);                                                                    \
+    fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+    fflush(stderr);
+    exit(EXIT_FAILURE);
   }
 
   n_read = plchain_post_gpu_helper(stream_setup, t, misc, km);

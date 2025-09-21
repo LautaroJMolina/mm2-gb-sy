@@ -16,9 +16,9 @@
 #include <string.h>
 #include <time.h>
 void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
-                           int range_grid_size, size_t buffer_size_long) {
- dpct::device_ext &dev_ct1 = dpct::get_current_device();
- sycl::queue &q_ct1 = dev_ct1.in_order_queue();
+                           int range_grid_size, size_t buffer_size_long) try {
+  dpct::device_ext &dev_ct1 = dpct::get_current_device();
+  sycl::queue &q_ct1 = dev_ct1.in_order_queue();
 #ifdef DEBUG_PRINT
   size_t host_mem_size;
   host_mem_size =
@@ -44,10 +44,14 @@ void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
   host_mem->cut_start_idx = sycl::malloc_host<size_t>(range_grid_size, q_ct1);
 
   host_mem->long_segs_num = sycl::malloc_host<unsigned int>(1, q_ct1);
-  // sycl_check(q_ct1);
+
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
 }
 
-void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) {
+void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) try {
  dpct::device_ext &dev_ct1 = dpct::get_current_device();
  sycl::queue &q_ct1 = dev_ct1.in_order_queue();
 #ifdef DEBUG_PRINT
@@ -69,12 +73,15 @@ void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) {
   long_mem->p_long = sycl::malloc_host<uint16_t>(buffer_size_long, q_ct1);
   long_mem->total_long_segs_num = sycl::malloc_host<unsigned int>(1, q_ct1);
   long_mem->total_long_segs_n = sycl::malloc_host<size_t>(1, q_ct1);
-  // sycl_check(q_ct1);
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
 }
 
-void plmem_free_host_mem(hostMemPtr *host_mem) {
- dpct::device_ext &dev_ct1 = dpct::get_current_device();
- sycl::queue &q_ct1 = dev_ct1.in_order_queue();
+void plmem_free_host_mem(hostMemPtr *host_mem) try {
+  dpct::device_ext &dev_ct1 = dpct::get_current_device();
+  sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   sycl::free(host_mem->ax, q_ct1);
   sycl::free(host_mem->ay, q_ct1);
   sycl::free(host_mem->sid, q_ct1);
@@ -85,22 +92,28 @@ void plmem_free_host_mem(hostMemPtr *host_mem) {
   sycl::free(host_mem->read_end_idx, q_ct1);
   sycl::free(host_mem->cut_start_idx, q_ct1);
   sycl::free(host_mem->long_segs_num, q_ct1);
-  // sycl_check(q_ct1);
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
 }
 
-void plmem_free_long_mem(longMemPtr *long_mem) {
- dpct::device_ext &dev_ct1 = dpct::get_current_device();
- sycl::queue &q_ct1 = dev_ct1.in_order_queue();
+void plmem_free_long_mem(longMemPtr *long_mem) try {
+  dpct::device_ext &dev_ct1 = dpct::get_current_device();
+  sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   sycl::free(long_mem->long_segs_og_idx, q_ct1);
   sycl::free(long_mem->f_long, q_ct1);
   sycl::free(long_mem->p_long, q_ct1);
   sycl::free(long_mem->total_long_segs_num, q_ct1);
   sycl::free(long_mem->total_long_segs_n, q_ct1);
-  // sycl_check(q_ct1);
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
 }
 
 void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
-                             int range_grid_size, int num_cut) {
+                             int range_grid_size, int num_cut) try {
  dpct::device_ext &dev_ct1 = dpct::get_current_device();
  sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   // data array
@@ -160,10 +173,13 @@ void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
       sycl::malloc_device<int32_t>(dev_mem->buffer_size_long, q_ct1);
   dev_mem->d_p_long =
       sycl::malloc_device<uint16_t>(dev_mem->buffer_size_long, q_ct1);
-  // sycl_check(q_ct1);
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
 }
 
-void plmem_free_device_mem(deviceMemPtr *dev_mem) {
+void plmem_free_device_mem(deviceMemPtr *dev_mem) try {
  dpct::device_ext &dev_ct1 = dpct::get_current_device();
  sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   dpct::dpct_free(dev_mem->d_ax, q_ct1);
@@ -189,7 +205,10 @@ void plmem_free_device_mem(deviceMemPtr *dev_mem) {
   dpct::dpct_free(dev_mem->d_sid_long, q_ct1);
   dpct::dpct_free(dev_mem->d_range_long, q_ct1);
   dpct::dpct_free(dev_mem->d_total_n_long, q_ct1);
-  // sycl_check(q_ct1);
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
 }
 
 /**
@@ -387,38 +406,41 @@ void plmem_async_h2d_memcpy(stream_ptr_t *stream_ptrs) {
   dev_mem->griddim = host_mem->griddim;
 }
 
-void plmem_sync_h2d_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem) {
+void plmem_sync_h2d_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem) try {
  dpct::device_ext &dev_ct1 = dpct::get_current_device();
  sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   q_ct1.memcpy(dev_mem->d_ax, host_mem->ax, sizeof(int32_t) * host_mem->total_n)
-      .wait();
+      .wait_and_throw();
   q_ct1.memcpy(dev_mem->d_ay, host_mem->ay, sizeof(int32_t) * host_mem->total_n)
-      .wait();
+      .wait_and_throw();
   q_ct1
       .memcpy(dev_mem->d_sid, host_mem->sid, sizeof(int8_t) * host_mem->total_n)
-      .wait();
+      .wait_and_throw();
   q_ct1
       .memcpy(dev_mem->d_xrev, host_mem->xrev,
               sizeof(int32_t) * host_mem->total_n)
-      .wait();
+      .wait_and_throw();
   q_ct1
       .memcpy(dev_mem->d_start_idx, host_mem->start_idx,
               sizeof(size_t) * host_mem->griddim)
-      .wait();
+      .wait_and_throw();
   q_ct1
       .memcpy(dev_mem->d_read_end_idx, host_mem->read_end_idx,
               sizeof(size_t) * host_mem->griddim)
-      .wait();
+      .wait_and_throw();
   q_ct1
       .memcpy(dev_mem->d_cut_start_idx, host_mem->cut_start_idx,
               sizeof(size_t) * host_mem->griddim)
-      .wait();
-  q_ct1.memset(dev_mem->d_cut, 0xff, sizeof(size_t) * host_mem->cut_num).wait();
+      .wait_and_throw();
+  q_ct1.memset(dev_mem->d_cut, 0xff, sizeof(size_t) * host_mem->cut_num).wait_and_throw();
   dev_mem->total_n = host_mem->total_n;
   dev_mem->num_cut = host_mem->cut_num;
   dev_mem->size = host_mem->size;
   dev_mem->griddim = host_mem->griddim;
-  // sycl_check(q_ct1);
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
 }
 
 void plmem_async_d2h_memcpy(stream_ptr_t *stream_ptrs) {
@@ -566,14 +588,17 @@ void plmem_async_d2h_long_memcpy(stream_ptr_t *stream_ptrs) {
   sycl_check(**stream);
 }
 
-void plmem_sync_d2h_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem) {
+void plmem_sync_d2h_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem) try {
  dpct::device_ext &dev_ct1 = dpct::get_current_device();
  sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   q_ct1.memcpy(host_mem->f, dev_mem->d_f, sizeof(int32_t) * host_mem->total_n)
-      .wait();
+      .wait_and_throw();
   q_ct1.memcpy(host_mem->p, dev_mem->d_p, sizeof(uint16_t) * host_mem->total_n)
-      .wait();
-  // sycl_check(q_ct1);
+      .wait_and_throw();
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
 }
 
 //////////////////// Initialization and Cleanup
@@ -837,19 +862,24 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
                           long_seg_buffer_size);
     plmem_malloc_device_mem(&stream_setup.streams[i].dev_mem,
                             max_anchors_stream, max_range_grid, max_num_cut);
-    q_ct1
-        .memset(stream_setup.streams[i].dev_mem.d_long_seg_count, 0,
-                sizeof(unsigned int))
-        .wait();
-    q_ct1
-        .memset(stream_setup.streams[i].dev_mem.d_mid_seg_count, 0,
-                sizeof(unsigned int))
-        .wait();
-    q_ct1
-        .memset(stream_setup.streams[i].dev_mem.d_total_n_long, 0,
-                sizeof(size_t))
-        .wait();
-    // sycl_check();
+    try {
+      q_ct1
+          .memset(stream_setup.streams[i].dev_mem.d_long_seg_count, 0,
+                  sizeof(unsigned int))
+          .wait();
+      q_ct1
+          .memset(stream_setup.streams[i].dev_mem.d_mid_seg_count, 0,
+                  sizeof(unsigned int))
+          .wait();
+      q_ct1
+          .memset(stream_setup.streams[i].dev_mem.d_total_n_long, 0,
+                  sizeof(size_t))
+          .wait();
+    } catch (const sycl::exception &e) {
+      fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+      fflush(stderr);
+      exit(EXIT_FAILURE);
+    }
   }
 
   /*
@@ -875,11 +905,16 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
 
 void plmem_stream_cleanup() {
   for (int i = 0; i < stream_setup.num_stream; i++) {
-    dpct::get_current_device().destroy_queue(stream_setup.streams[i].cudastream);
-    dpct::destroy_event(stream_setup.streams[i].stopevent);
-    dpct::destroy_event(stream_setup.streams[i].startevent);
-    dpct::destroy_event(stream_setup.streams[i].long_kernel_event);
-    // sycl_check();
+    try {
+      dpct::get_current_device().destroy_queue(stream_setup.streams[i].cudastream);
+      dpct::destroy_event(stream_setup.streams[i].stopevent);
+      dpct::destroy_event(stream_setup.streams[i].startevent);
+      dpct::destroy_event(stream_setup.streams[i].long_kernel_event);
+    } catch (const sycl::exception &e) {
+      fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+      fflush(stderr);
+      exit(EXIT_FAILURE);
+    }
     // free multiple host mems
     for (int j = 0; j < score_kernel_config.micro_batch; j++) {
       plmem_free_host_mem(&stream_setup.streams[i].host_mems[j]);
