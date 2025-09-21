@@ -4,6 +4,7 @@
 
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
+#include "syclcheck.cpp"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -239,16 +240,16 @@ extern "C" {
 range_kernel_config_t range_kernel_config;
 
 void plrange_upload_misc(Misc misc) {
- dpct::device_ext &dev_ct1 = dpct::get_current_device();
- sycl::queue &q_ct1 = dev_ct1.in_order_queue();
-    // cudaCheck();
-    q_ct1.memcpy(d_max_dist_x.get_ptr(), &misc.max_dist_x, sizeof(int));
-    q_ct1.memcpy(d_max_iter.get_ptr(), &misc.max_iter, sizeof(int));
-    q_ct1
-        .memcpy(d_cut_check_anchors.get_ptr(),
-                &range_kernel_config.cut_check_anchors, sizeof(int))
-        .wait();
-    // cudaCheck();
+  dpct::device_ext &dev_ct1 = dpct::get_current_device();
+  sycl::queue &q_ct1 = dev_ct1.in_order_queue();
+  // sycl_check();
+  q_ct1.memcpy(d_max_dist_x.get_ptr(), &misc.max_dist_x, sizeof(int));
+  q_ct1.memcpy(d_max_iter.get_ptr(), &misc.max_iter, sizeof(int));
+  q_ct1
+      .memcpy(d_cut_check_anchors.get_ptr(),
+              &range_kernel_config.cut_check_anchors, sizeof(int))
+      .wait();
+  // sycl_check();
 }
 
 void plrange_async_range_selection(deviceMemPtr *dev_mem,
@@ -297,7 +298,7 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
           });
     });
   }
-    // cudaCheck();
+  sycl_check(**stream);
 #ifdef DEBUG_PRINT
     // fprintf(stderr, "[Info] %s (%s:%d): Batch total_n %lu, Range Kernel Launched, grid %d cut %d\n", __func__, __FILE__, __LINE__, total_n, DimGrid.x, cut_num);
 #endif
@@ -353,9 +354,15 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
           });
     });
   }
-    // cudaCheck();
+
+  try {
     dpct::get_current_device().queues_wait_and_throw();
-    // cudaCheck();
+  } catch (const sycl::exception &e) {
+    fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what()); \
+    fflush(stderr);                                                                        \
+    exit(EXIT_FAILURE);                                                                    \
+  }
+
 #ifdef DEBUG_PRINT
     fprintf(stderr, "[Info] %s: range calculation success\n", __func__);
 #endif

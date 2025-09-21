@@ -6,6 +6,7 @@
 
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
+#include "syclcheck.cpp"
 #include "plmem.dp.hpp"
 #include "plrange.dp.hpp"
 #include "plscore.dp.hpp"
@@ -43,7 +44,7 @@ void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
   host_mem->cut_start_idx = sycl::malloc_host<size_t>(range_grid_size, q_ct1);
 
   host_mem->long_segs_num = sycl::malloc_host<unsigned int>(1, q_ct1);
-  // cudaCheck();
+  // sycl_check(q_ct1);
 }
 
 void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) {
@@ -68,7 +69,7 @@ void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) {
   long_mem->p_long = sycl::malloc_host<uint16_t>(buffer_size_long, q_ct1);
   long_mem->total_long_segs_num = sycl::malloc_host<unsigned int>(1, q_ct1);
   long_mem->total_long_segs_n = sycl::malloc_host<size_t>(1, q_ct1);
-  // cudaCheck();
+  // sycl_check(q_ct1);
 }
 
 void plmem_free_host_mem(hostMemPtr *host_mem) {
@@ -84,7 +85,7 @@ void plmem_free_host_mem(hostMemPtr *host_mem) {
   sycl::free(host_mem->read_end_idx, q_ct1);
   sycl::free(host_mem->cut_start_idx, q_ct1);
   sycl::free(host_mem->long_segs_num, q_ct1);
-  // cudaCheck();
+  // sycl_check(q_ct1);
 }
 
 void plmem_free_long_mem(longMemPtr *long_mem) {
@@ -95,7 +96,7 @@ void plmem_free_long_mem(longMemPtr *long_mem) {
   sycl::free(long_mem->p_long, q_ct1);
   sycl::free(long_mem->total_long_segs_num, q_ct1);
   sycl::free(long_mem->total_long_segs_n, q_ct1);
-  // cudaCheck();
+  // sycl_check(q_ct1);
 }
 
 void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
@@ -159,7 +160,7 @@ void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
       sycl::malloc_device<int32_t>(dev_mem->buffer_size_long, q_ct1);
   dev_mem->d_p_long =
       sycl::malloc_device<uint16_t>(dev_mem->buffer_size_long, q_ct1);
-  // cudaCheck();
+  // sycl_check(q_ct1);
 }
 
 void plmem_free_device_mem(deviceMemPtr *dev_mem) {
@@ -188,7 +189,7 @@ void plmem_free_device_mem(deviceMemPtr *dev_mem) {
   dpct::dpct_free(dev_mem->d_sid_long, q_ct1);
   dpct::dpct_free(dev_mem->d_range_long, q_ct1);
   dpct::dpct_free(dev_mem->d_total_n_long, q_ct1);
-  // cudaCheck();
+  // sycl_check(q_ct1);
 }
 
 /**
@@ -308,7 +309,7 @@ void plmem_async_h2d_short_memcpy(stream_ptr_t *stream_ptrs, size_t uid) {
   (*stream)->memset(dev_mem->d_cut, 0xff, sizeof(size_t) * host_mem->cut_num);
   (*stream)->memset(dev_mem->d_f, 0, sizeof(int32_t) * host_mem->total_n);
   (*stream)->memset(dev_mem->d_p, 0, sizeof(uint16_t) * host_mem->total_n);
-  // cudaCheck();
+  sycl_check(**stream);
   dev_mem->total_n = host_mem->total_n;
   dev_mem->num_cut = host_mem->cut_num;
   dev_mem->size = host_mem->size;
@@ -379,7 +380,7 @@ void plmem_async_h2d_memcpy(stream_ptr_t *stream_ptrs) {
   (*stream)->memset(dev_mem->d_cut, 0xff, sizeof(size_t) * host_mem->cut_num);
   (*stream)->memset(dev_mem->d_f, 0, sizeof(int32_t) * host_mem->total_n);
   (*stream)->memset(dev_mem->d_p, 0, sizeof(uint16_t) * host_mem->total_n);
-  // cudaCheck();
+  sycl_check(**stream);
   dev_mem->total_n = host_mem->total_n;
   dev_mem->num_cut = host_mem->cut_num;
   dev_mem->size = host_mem->size;
@@ -417,7 +418,7 @@ void plmem_sync_h2d_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem) {
   dev_mem->num_cut = host_mem->cut_num;
   dev_mem->size = host_mem->size;
   dev_mem->griddim = host_mem->griddim;
-  // cudaCheck();
+  // sycl_check(q_ct1);
 }
 
 void plmem_async_d2h_memcpy(stream_ptr_t *stream_ptrs) {
@@ -477,7 +478,7 @@ void plmem_async_d2h_memcpy(stream_ptr_t *stream_ptrs) {
   */
   (*stream)->memcpy(long_mem->p_long, dev_mem->d_p_long,
                   sizeof(uint16_t) * dev_mem->buffer_size_long);
-  // cudaCheck();
+  sycl_check(**stream);
 }
 
 void plmem_async_d2h_short_memcpy(stream_ptr_t *stream_ptrs, size_t uid) {
@@ -509,7 +510,7 @@ void plmem_async_d2h_short_memcpy(stream_ptr_t *stream_ptrs, size_t uid) {
   */
   (*stream)->memcpy(host_mem->long_segs_num, dev_mem->d_long_seg_count,
                   sizeof(unsigned int));
-  // cudaCheck();
+  sycl_check(**stream);
 }
 
 void plmem_async_d2h_long_memcpy(stream_ptr_t *stream_ptrs) {
@@ -562,7 +563,7 @@ void plmem_async_d2h_long_memcpy(stream_ptr_t *stream_ptrs) {
   */
   (*stream)->memcpy(long_mem->total_long_segs_num, dev_mem->d_long_seg_count,
                   sizeof(unsigned int));
-  // cudaCheck();
+  sycl_check(**stream);
 }
 
 void plmem_sync_d2h_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem) {
@@ -572,7 +573,7 @@ void plmem_sync_d2h_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem) {
       .wait();
   q_ct1.memcpy(host_mem->p, dev_mem->d_p, sizeof(uint16_t) * host_mem->total_n)
       .wait();
-  // cudaCheck();
+  // sycl_check(q_ct1);
 }
 
 //////////////////// Initialization and Cleanup
@@ -679,7 +680,7 @@ void plmem_config_stream(size_t *max_range_grid_, size_t *max_num_cut_,
 
   dpct::device_info prop;
   dpct::get_device(0).get_device_info(prop);
-  // cudaCheck();
+  // sycl_check();
 
   /*
   DPCT1022:50: There is no exact match between the maxGridSize and the
@@ -821,7 +822,7 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
     stream_setup.streams[i].stopevent = new sycl::event();
     stream_setup.streams[i].startevent = new sycl::event();
     stream_setup.streams[i].long_kernel_event = new sycl::event();
-    // cudaCheck();
+    // sycl_check();
     stream_setup.streams[i].dev_mem.buffer_size_long = long_seg_buffer_size;
     // one stream has multiple host mems
     for (int j = 0; j < score_kernel_config.micro_batch; j++) {
@@ -848,7 +849,7 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
         .memset(stream_setup.streams[i].dev_mem.d_total_n_long, 0,
                 sizeof(size_t))
         .wait();
-    // cudaCheck();
+    // sycl_check();
   }
 
   /*
@@ -869,7 +870,7 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
   stream_setup.max_range_grid = max_range_grid;
   stream_setup.max_num_cut = max_num_cut;
   stream_setup.long_seg_buffer_size_stream = long_seg_buffer_size;
-  // cudaCheck();
+  // sycl_check();
 }
 
 void plmem_stream_cleanup() {
@@ -878,7 +879,7 @@ void plmem_stream_cleanup() {
     dpct::destroy_event(stream_setup.streams[i].stopevent);
     dpct::destroy_event(stream_setup.streams[i].startevent);
     dpct::destroy_event(stream_setup.streams[i].long_kernel_event);
-    // cudaCheck();
+    // sycl_check();
     // free multiple host mems
     for (int j = 0; j < score_kernel_config.micro_batch; j++) {
       plmem_free_host_mem(&stream_setup.streams[i].host_mems[j]);
