@@ -566,8 +566,10 @@ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid,
 score_kernel_config_t score_kernel_config;
 
 void plscore_upload_misc(Misc input_misc) try {
-  dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  sycl::queue &q_ct1 = dev_ct1.in_order_queue();
+  // dpct::device_ext &dev_ct1 = dpct::get_current_device();
+  // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
+  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue &q_ct1 = q; 
   q_ct1.memcpy(misc.get_ptr(), &input_misc, sizeof(Misc));
   q_ct1.memcpy(long_seg_cutoff.get_ptr(), &score_kernel_config.long_seg_cutoff, sizeof(int));
   q_ct1.memcpy(mid_seg_cutoff.get_ptr(), &score_kernel_config.mid_seg_cutoff, sizeof(int));

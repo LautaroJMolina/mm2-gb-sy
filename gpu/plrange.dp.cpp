@@ -240,8 +240,10 @@ extern "C" {
 range_kernel_config_t range_kernel_config;
 
 void plrange_upload_misc(Misc misc) try {
-  dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  sycl::queue &q_ct1 = dev_ct1.in_order_queue();
+  // dpct::device_ext &dev_ct1 = dpct::get_current_device();
+  // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
+  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue &q_ct1 = q; 
   q_ct1.memcpy(d_max_dist_x.get_ptr(), &misc.max_dist_x, sizeof(int));
   q_ct1.memcpy(d_max_iter.get_ptr(), &misc.max_iter, sizeof(int));
   q_ct1.memcpy(d_cut_check_anchors.get_ptr(), &range_kernel_config.cut_check_anchors, sizeof(int));
