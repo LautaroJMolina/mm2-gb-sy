@@ -18,12 +18,12 @@ extern "C" {
 
 void plscore_upload_misc(Misc misc);
 void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
-                                    dpct::queue_ptr *stream);
+                                    sycl::queue **stream);
 void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
-                                        dpct::queue_ptr *stream,
+                                        sycl::queue **stream,
                                         sycl::event *stop_event_short);
 void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
-                                   dpct::queue_ptr *stream);
+                                   sycl::queue **stream);
 
 extern score_kernel_config_t score_kernel_config;
 

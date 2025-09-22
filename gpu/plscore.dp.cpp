@@ -566,8 +566,6 @@ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid,
 score_kernel_config_t score_kernel_config;
 
 void plscore_upload_misc(Misc input_misc) try {
-  // dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   sycl::queue q(sycl::property::queue::in_order{});
   sycl::queue &q_ct1 = q; 
   q_ct1.memcpy(misc.get_ptr(), &input_misc, sizeof(Misc));
@@ -581,7 +579,7 @@ void plscore_upload_misc(Misc input_misc) try {
 }
 
 void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
-                                        dpct::queue_ptr *stream,
+                                        sycl::queue **stream,
                                         sycl::event *stop_event_short) {
     size_t total_n = dev_mem->total_n;
     size_t cut_num = dev_mem->num_cut;
@@ -824,7 +822,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
 }
 
 void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
-                                   dpct::queue_ptr *stream) {
+                                   sycl::queue **stream) {
     size_t total_n = dev_mem->total_n;
     size_t cut_num = dev_mem->num_cut;
     size_t buffer_size_long = dev_mem->buffer_size_long;
@@ -887,7 +885,7 @@ void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
 }
 
 void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
-                                    dpct::queue_ptr *stream) {
+                                    sycl::queue **stream) {
     size_t total_n = dev_mem->total_n;
     size_t cut_num = dev_mem->num_cut;
     dpct::dim3 DimBlock(score_kernel_config.long_blockdim, 1, 1);

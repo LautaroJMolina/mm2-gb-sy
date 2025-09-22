@@ -19,7 +19,7 @@ typedef __int32_t int32_t;
 /* functions declaration */
 void plrange_upload_misc(Misc misc);
 void plrange_async_range_selection(deviceMemPtr *device_mem_ptr,
-                                   dpct::queue_ptr *stream,
+                                   sycl::queue **stream,
                                    sycl::event *start_event_short);
 void plrange_sync_range_selection(deviceMemPtr* dev_mem, Misc misc);
 

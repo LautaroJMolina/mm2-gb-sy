@@ -107,10 +107,10 @@ typedef struct stream_ptr_t{
     hostMemPtr host_mems[MAX_MICRO_BATCH];
     longMemPtr long_mem;
     deviceMemPtr dev_mem;
-    dpct::queue_ptr cudastream;
-    dpct::event_ptr stopevent, startevent, long_kernel_event;
-    dpct::event_ptr short_kernel_start_event[MAX_MICRO_BATCH];
-    dpct::event_ptr short_kernel_stop_event[MAX_MICRO_BATCH];
+    sycl::queue *cudastream;
+    sycl::event *stopevent, *startevent, *long_kernel_event;
+    sycl::event *short_kernel_start_event[MAX_MICRO_BATCH];
+    sycl::event *short_kernel_stop_event[MAX_MICRO_BATCH];
     bool busy = false;
 } stream_ptr_t;
 

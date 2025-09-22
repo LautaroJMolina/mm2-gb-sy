@@ -13,8 +13,6 @@
 
 #ifdef DEBUG_CHECK
 void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]) {
-    // dpct::device_ext &dev_ct1 = dpct::get_current_device();
-    // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
     sycl::queue q(sycl::property::queue::in_order{});
     sycl::queue &q_ct1 = q; 
     stream.cudastream->wait();
@@ -165,8 +163,6 @@ void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]) {
 #ifdef DEBUG_CHECK
 
 void planalyze_long_kernel(stream_ptr_t stream, float *throughput) {
-    // dpct::device_ext &dev_ct1 = dpct::get_current_device();
-    // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
     sycl::queue q(sycl::property::queue::in_order{});
     sycl::queue &q_ct1 = q; 
     deviceMemPtr* dev_mem = &stream.dev_mem;

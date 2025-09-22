@@ -17,8 +17,6 @@
 #include <time.h>
 void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
                            int range_grid_size, size_t buffer_size_long) try {
-    // dpct::device_ext &dev_ct1 = dpct::get_current_device();
-    // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
     sycl::queue q(sycl::property::queue::in_order{});
     sycl::queue &q_ct1 = q; 
 #ifdef DEBUG_PRINT
@@ -54,8 +52,6 @@ void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
 }
 
 void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) try {
-  // dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   sycl::queue q(sycl::property::queue::in_order{});
   sycl::queue &q_ct1 = q; 
 #ifdef DEBUG_PRINT
@@ -84,8 +80,6 @@ void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) try {
 }
 
 void plmem_free_host_mem(hostMemPtr *host_mem) try {
-  // dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   sycl::queue q(sycl::property::queue::in_order{});
   sycl::queue &q_ct1 = q; 
   sycl::free(host_mem->ax, q_ct1);
@@ -105,8 +99,6 @@ void plmem_free_host_mem(hostMemPtr *host_mem) try {
 }
 
 void plmem_free_long_mem(longMemPtr *long_mem) try {
-  // dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   sycl::queue q(sycl::property::queue::in_order{});
   sycl::queue &q_ct1 = q; 
   sycl::free(long_mem->long_segs_og_idx, q_ct1);
@@ -122,8 +114,6 @@ void plmem_free_long_mem(longMemPtr *long_mem) try {
 
 void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
                              int range_grid_size, int num_cut) try {
-  // dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   sycl::queue q(sycl::property::queue::in_order{});
   sycl::queue &q_ct1 = q; 
   // data array
@@ -190,8 +180,6 @@ void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
 }
 
 void plmem_free_device_mem(deviceMemPtr *dev_mem) try {
-  // dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   sycl::queue q(sycl::property::queue::in_order{});
   sycl::queue &q_ct1 = q; 
   dpct::dpct_free(dev_mem->d_ax, q_ct1);
@@ -280,7 +268,7 @@ void plmem_reorg_input_arr(chain_read_t *reads, int n_read,
 void plmem_async_h2d_short_memcpy(stream_ptr_t *stream_ptrs, size_t uid) {
   hostMemPtr *host_mem = &stream_ptrs->host_mems[uid];
   deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
-  dpct::queue_ptr *stream = &stream_ptrs->cudastream;
+  sycl::queue **stream = &stream_ptrs->cudastream;
   /*
   DPCT1124:22: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
   origin API might be synchronous, it depends on the type of operand memory, so
@@ -351,7 +339,7 @@ void plmem_async_h2d_memcpy(stream_ptr_t *stream_ptrs) {
   size_t uid = 0;
   hostMemPtr *host_mem = &stream_ptrs->host_mems[uid];
   deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
-  dpct::queue_ptr *stream = &stream_ptrs->cudastream;
+  sycl::queue **stream = &stream_ptrs->cudastream;
   /*
   DPCT1124:29: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
   origin API might be synchronous, it depends on the type of operand memory, so
@@ -419,8 +407,6 @@ void plmem_async_h2d_memcpy(stream_ptr_t *stream_ptrs) {
 }
 
 void plmem_sync_h2d_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem) try {
-  // dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   sycl::queue q(sycl::property::queue::in_order{});
   sycl::queue &q_ct1 = q; 
   q_ct1.memcpy(dev_mem->d_ax, host_mem->ax, sizeof(int32_t) * host_mem->total_n)
@@ -462,7 +448,7 @@ void plmem_async_d2h_memcpy(stream_ptr_t *stream_ptrs) {
   hostMemPtr *host_mem = &stream_ptrs->host_mems[uid];
   longMemPtr *long_mem = &stream_ptrs->long_mem;
   deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
-  dpct::queue_ptr *stream = &stream_ptrs->cudastream;
+  sycl::queue **stream = &stream_ptrs->cudastream;
   /*
   DPCT1124:36: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
   origin API might be synchronous, it depends on the type of operand memory, so
@@ -520,7 +506,7 @@ void plmem_async_d2h_memcpy(stream_ptr_t *stream_ptrs) {
 void plmem_async_d2h_short_memcpy(stream_ptr_t *stream_ptrs, size_t uid) {
   hostMemPtr *host_mem = &stream_ptrs->host_mems[uid];
   deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
-  dpct::queue_ptr *stream = &stream_ptrs->cudastream;
+  sycl::queue **stream = &stream_ptrs->cudastream;
   /*
   DPCT1124:42: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
   origin API might be synchronous, it depends on the type of operand memory, so
@@ -553,7 +539,7 @@ void plmem_async_d2h_long_memcpy(stream_ptr_t *stream_ptrs) {
   size_t uid = 0;
   longMemPtr *long_mem = &stream_ptrs->long_mem;
   deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
-  dpct::queue_ptr *stream = &stream_ptrs->cudastream;
+  sycl::queue **stream = &stream_ptrs->cudastream;
   /*
   DPCT1124:45: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
   origin API might be synchronous, it depends on the type of operand memory, so
@@ -603,8 +589,6 @@ void plmem_async_d2h_long_memcpy(stream_ptr_t *stream_ptrs) {
 }
 
 void plmem_sync_d2h_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem) try {
-  // dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   sycl::queue q(sycl::property::queue::in_order{});
   sycl::queue &q_ct1 = q; 
   q_ct1.memcpy(host_mem->f, dev_mem->d_f, sizeof(int32_t) * host_mem->total_n)

@@ -240,8 +240,6 @@ extern "C" {
 range_kernel_config_t range_kernel_config;
 
 void plrange_upload_misc(Misc misc) try {
-  // dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   sycl::queue q(sycl::property::queue::in_order{});
   sycl::queue &q_ct1 = q; 
   q_ct1.memcpy(d_max_dist_x.get_ptr(), &misc.max_dist_x, sizeof(int));
@@ -255,7 +253,7 @@ void plrange_upload_misc(Misc misc) try {
 }
 
 void plrange_async_range_selection(deviceMemPtr *dev_mem,
-                                   dpct::queue_ptr *stream,
+                                   sycl::queue **stream,
                                    sycl::event *start_event_short) {
     size_t total_n = dev_mem->total_n, cut_num = dev_mem->num_cut;
     int griddim = dev_mem->griddim;
