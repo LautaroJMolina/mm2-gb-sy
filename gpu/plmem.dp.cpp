@@ -182,29 +182,29 @@ void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
 void plmem_free_device_mem(deviceMemPtr *dev_mem) try {
   sycl::queue q(sycl::property::queue::in_order{});
   sycl::queue &q_ct1 = q; 
-  dpct::dpct_free(dev_mem->d_ax, q_ct1);
-  dpct::dpct_free(dev_mem->d_ay, q_ct1);
-  dpct::dpct_free(dev_mem->d_sid, q_ct1);
-  dpct::dpct_free(dev_mem->d_xrev, q_ct1);
-  dpct::dpct_free(dev_mem->d_range, q_ct1);
-  dpct::dpct_free(dev_mem->d_f, q_ct1);
-  dpct::dpct_free(dev_mem->d_p, q_ct1);
+  sycl::free(dev_mem->d_ax, q_ct1);
+  sycl::free(dev_mem->d_ay, q_ct1);
+  sycl::free(dev_mem->d_sid, q_ct1);
+  sycl::free(dev_mem->d_xrev, q_ct1);
+  sycl::free(dev_mem->d_range, q_ct1);
+  sycl::free(dev_mem->d_f, q_ct1);
+  sycl::free(dev_mem->d_p, q_ct1);
 
-  dpct::dpct_free(dev_mem->d_start_idx, q_ct1);
-  dpct::dpct_free(dev_mem->d_read_end_idx, q_ct1);
-  dpct::dpct_free(dev_mem->d_cut_start_idx, q_ct1);
+  sycl::free(dev_mem->d_start_idx, q_ct1);
+  sycl::free(dev_mem->d_read_end_idx, q_ct1);
+  sycl::free(dev_mem->d_cut_start_idx, q_ct1);
 
-  dpct::dpct_free(dev_mem->d_cut, q_ct1);
-  dpct::dpct_free(dev_mem->d_long_seg, q_ct1);
-  dpct::dpct_free(dev_mem->d_long_seg_count, q_ct1);
-  dpct::dpct_free(dev_mem->d_mid_seg, q_ct1);
-  dpct::dpct_free(dev_mem->d_mid_seg_count, q_ct1);
+  sycl::free(dev_mem->d_cut, q_ct1);
+  sycl::free(dev_mem->d_long_seg, q_ct1);
+  sycl::free(dev_mem->d_long_seg_count, q_ct1);
+  sycl::free(dev_mem->d_mid_seg, q_ct1);
+  sycl::free(dev_mem->d_mid_seg_count, q_ct1);
 
-  dpct::dpct_free(dev_mem->d_ax_long, q_ct1);
-  dpct::dpct_free(dev_mem->d_ay_long, q_ct1);
-  dpct::dpct_free(dev_mem->d_sid_long, q_ct1);
-  dpct::dpct_free(dev_mem->d_range_long, q_ct1);
-  dpct::dpct_free(dev_mem->d_total_n_long, q_ct1);
+  sycl::free(dev_mem->d_ax_long, q_ct1);
+  sycl::free(dev_mem->d_ay_long, q_ct1);
+  sycl::free(dev_mem->d_sid_long, q_ct1);
+  sycl::free(dev_mem->d_range_long, q_ct1);
+  sycl::free(dev_mem->d_total_n_long, q_ct1);
 } catch (const sycl::exception &e) {
   fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
   fflush(stderr);
