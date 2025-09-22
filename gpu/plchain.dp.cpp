@@ -332,8 +332,8 @@ int plchain_post_gpu_helper(streamSetup_t stream_setup, int stream_id,
 void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc,
                              streamSetup_t stream_setup, int thread_id,
                              void *km) {
- dpct::device_ext &dev_ct1 = dpct::get_current_device();
- sycl::queue &q_ct1 = dev_ct1.in_order_queue();
+  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue &q_ct1 = q; 
   chain_read_t *reads = *reads_;
   *reads_ = NULL;
   int n_read = *n_read_;
