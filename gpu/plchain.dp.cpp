@@ -15,6 +15,7 @@
 #include "plmem.dp.hpp"
 #include "plrange.dp.hpp"
 #include "plscore.dp.hpp"
+#include "syclcheck.cpp"
 #include <algorithm>
 #include <utility>
 
@@ -187,18 +188,17 @@ int plchain_schedule_stream(const streamSetup_t stream_setup,
         // FIXME: unnecessary recreate?
         dpct::destroy_event(stream_setup.streams[t].stopevent);
         stream_setup.streams[t].stopevent = new sycl::event();
-        // cudaCheck();
+        // sycl_check();
         break;
       }
-      // cudaCheck();
+      // sycl_check();
     }
   }
   return streamid;
-}
-catch (sycl::exception const &exc) {
-  std::cerr << exc.what() << "Exception caught at file:" << __FILE__
-            << ", line:" << __LINE__ << std::endl;
-  std::exit(1);
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
 }
 
 // Global variable for debug prints. Throughput, runtime & mem usage
@@ -376,7 +376,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc,
   stream_setup.streams[stream_id].cudastream->memset(
       stream_setup.streams[stream_id].dev_mem.d_total_n_long, 0,
       sizeof(size_t));
-  // cudaCheck();
+  sycl_check(*(stream_setup.streams[stream_id].cudastream));
   stream_setup.streams[stream_id].long_mem.total_long_segs_num[0] = 0;
   stream_setup.streams[stream_id].long_mem.total_long_segs_n[0] = 0;
   for (int uid = 0; uid < score_kernel_config.micro_batch; uid++) {
@@ -513,7 +513,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc,
                      stream_setup.streams[stream_id].cudastream);
   plmem_async_d2h_long_memcpy(&stream_setup.streams[stream_id]);
   stream_setup.streams[stream_id].busy = true;
-  // cudaCheck();
+  sycl_check(*(stream_setup.streams[stream_id].cudastream));
 }
 
 #ifdef __cplusplus
@@ -580,8 +580,14 @@ void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt,
 
   chain_read_t *reads;
   int n_read = 0;
-  stream_setup.streams[t].cudastream->wait();
-  // cudaCheck();
+
+  try {
+    stream_setup.streams[t].cudastream->wait_and_throw();
+  } catch (const sycl::exception &e) {
+    fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+    fflush(stderr);
+    exit(EXIT_FAILURE);
+  }
 
   n_read = plchain_post_gpu_helper(stream_setup, t, misc, km);
   reads = stream_setup.streams[t].reads;

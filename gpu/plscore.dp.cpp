@@ -4,6 +4,7 @@
 
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
+#include "syclcheck.cpp"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -564,17 +565,17 @@ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid,
 /* host functions begin */
 score_kernel_config_t score_kernel_config;
 
-void plscore_upload_misc(Misc input_misc) {
- dpct::device_ext &dev_ct1 = dpct::get_current_device();
- sycl::queue &q_ct1 = dev_ct1.in_order_queue();
-    q_ct1.memcpy(misc.get_ptr(), &input_misc, sizeof(Misc));
-    q_ct1.memcpy(long_seg_cutoff.get_ptr(),
-                 &score_kernel_config.long_seg_cutoff, sizeof(int));
-    q_ct1
-        .memcpy(mid_seg_cutoff.get_ptr(), &score_kernel_config.mid_seg_cutoff,
-                sizeof(int))
-        .wait();
-    // cudaCheck();
+void plscore_upload_misc(Misc input_misc) try {
+  dpct::device_ext &dev_ct1 = dpct::get_current_device();
+  sycl::queue &q_ct1 = dev_ct1.in_order_queue();
+  q_ct1.memcpy(misc.get_ptr(), &input_misc, sizeof(Misc));
+  q_ct1.memcpy(long_seg_cutoff.get_ptr(), &score_kernel_config.long_seg_cutoff, sizeof(int));
+  q_ct1.memcpy(mid_seg_cutoff.get_ptr(), &score_kernel_config.mid_seg_cutoff, sizeof(int));
+  q_ct1.wait_and_throw();
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
 }
 
 void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
@@ -691,7 +692,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 score_kernel_config.short_blockdim);
         exit(1);
     }
-    // cudaCheck();
+    sycl_check(**stream);
 
 
     if (score_kernel_config.mid_blockdim == 128){
@@ -813,13 +814,11 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 score_kernel_config.mid_blockdim);
         exit(1);
     }
-    // cudaCheck();
+    sycl_check(**stream);
 
 #ifdef DEBUG_PRINT
     // fprintf(stderr, "[Info] %s (%s:%d) short mid score kernel launched\n", __func__, __FILE__, __LINE__);
 #endif
-    
-    // cudaCheck();
 }
 
 void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
@@ -878,13 +877,11 @@ void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
         exit(1);
     }
 
-    // cudaCheck();
+    sycl_check(**stream);
 
 #ifdef DEBUG_PRINT
     // fprintf(stderr, "[Info] %s (%s:%d) long score generation launched\n", __func__, __FILE__, __LINE__);
 #endif
-    
-    // cudaCheck();
 }
 
 void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
@@ -926,11 +923,9 @@ void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
                        });
     });
   }
-    // cudaCheck();
+  sycl_check(**stream);
 #ifdef DEBUG_VERBOSE
     fprintf(stderr, "[M::%s] score generation kernel launch success\n", __func__);
 #endif
-
-    // cudaCheck();
 }
 
