@@ -596,7 +596,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     long_seg_cutoff.init(**stream);
     mid_seg_cutoff.init(**stream);
 
-    *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
+    (*stream)->submit([&](sycl::handler &cgh) {
       auto misc_ptr_ct1 = misc.get_ptr();
       auto long_seg_cutoff_ptr_ct1 = long_seg_cutoff.get_ptr();
       auto mid_seg_cutoff_ptr_ct1 = mid_seg_cutoff.get_ptr();
@@ -643,7 +643,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     long_seg_cutoff.init(**stream);
     mid_seg_cutoff.init(**stream);
 
-    *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
+    (*stream)->submit([&](sycl::handler &cgh) {
       auto misc_ptr_ct1 = misc.get_ptr();
       auto long_seg_cutoff_ptr_ct1 = long_seg_cutoff.get_ptr();
       auto mid_seg_cutoff_ptr_ct1 = mid_seg_cutoff.get_ptr();
@@ -698,7 +698,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     if (score_kernel_config.mid_blockdim == 128){
     misc.init(**stream);
 
-    (*stream)->submit([&](sycl::handler &cgh) {
+    *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
       auto misc_ptr_ct1 = misc.get_ptr();
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
@@ -723,7 +723,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     } else if (score_kernel_config.mid_blockdim == 256){
     misc.init(**stream);
 
-    (*stream)->submit([&](sycl::handler &cgh) {
+    *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
       auto misc_ptr_ct1 = misc.get_ptr();
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
@@ -753,7 +753,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
         */
     misc.init(**stream);
 
-    (*stream)->submit([&](sycl::handler &cgh) {
+    *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
       auto misc_ptr_ct1 = misc.get_ptr();
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
@@ -783,7 +783,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
         */
     misc.init(**stream);
 
-    (*stream)->submit([&](sycl::handler &cgh) {
+    *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
       auto misc_ptr_ct1 = misc.get_ptr();
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
