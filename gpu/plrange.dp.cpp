@@ -257,8 +257,8 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
                                    sycl::event *start_event_short) {
     size_t total_n = dev_mem->total_n, cut_num = dev_mem->num_cut;
     int griddim = dev_mem->griddim;
-    dpct::dim3 DimBlock(range_kernel_config.blockdim, 1, 1);
-    dpct::dim3 DimGrid(griddim, 1, 1);
+    sycl::range<3> DimBlock(range_kernel_config.blockdim, 1, 1);
+    sycl::range<3> DimGrid(griddim, 1, 1);
 
     // Run kernel
     /*
@@ -307,14 +307,14 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
 void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
     size_t total_n = dev_mem->total_n, cut_num = dev_mem->num_cut;
     int griddim = dev_mem->griddim;
-    dpct::dim3 DimBlock(range_kernel_config.blockdim, 1, 1);
-    dpct::dim3 DimGrid(griddim, 1, 1);
+    sycl::range<3> DimBlock(range_kernel_config.blockdim, 1, 1);
+    sycl::range<3> DimGrid(griddim, 1, 1);
 
     plrange_upload_misc(misc);
 
     // Run kernel
 #ifdef DEBUG_PRINT
-        fprintf(stderr, "[Info] %s (%s:%d): Grim Dim: %d Cut: %zu Anchors: %zu\n", __func__, __FILE__, __LINE__, DimGrid.x,
+        fprintf(stderr, "[Info] %s (%s:%d): Grim Dim: %zu Cut: %zu Anchors: %zu\n", __func__, __FILE__, __LINE__, DimGrid[2],
                 cut_num, total_n);
 #endif
     /*

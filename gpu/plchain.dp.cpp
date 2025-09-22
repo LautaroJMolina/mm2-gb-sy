@@ -183,10 +183,11 @@ int plchain_schedule_stream(const streamSetup_t stream_setup,
   int streamid = -1;
   while (streamid == -1) {
     for (int t = 0; t < stream_setup.num_stream; t++) {
-      if (!dpct::sycl_event_query(stream_setup.streams[t].stopevent)) {
+      auto status = stream_setup.streams[t].stopevent->get_info<sycl::info::event::command_execution_status>();
+      if (!(status == sycl::info::event_command_status::complete)) {
         streamid = t;
         // FIXME: unnecessary recreate?
-        dpct::destroy_event(stream_setup.streams[t].stopevent);
+        delete stream_setup.streams[t].stopevent;
         stream_setup.streams[t].stopevent = new sycl::event();
         // sycl_check();
         break;
@@ -355,8 +356,8 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc,
   }
 #endif // DEBUG_PRINT
 
-  dpct::sync_barrier(stream_setup.streams[stream_id].startevent,
-                     stream_setup.streams[stream_id].cudastream);
+  *(stream_setup.streams[stream_id].startevent) = stream_setup.streams[stream_id].cudastream->single_task([=]()-> void{});
+
   size_t total_n = 0;
   for (int i = 0; i < n_read; i++) {
     total_n += reads[i].n;
@@ -505,12 +506,13 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc,
       .wait();
   free(map);
 
-  dpct::sync_barrier(stream_setup.streams[stream_id].long_kernel_event,
-                     stream_setup.streams[stream_id].cudastream);
+  *(stream_setup.streams[stream_id].long_kernel_event) = stream_setup.streams[stream_id].cudastream->single_task([=]()-> void{});
+
   plscore_async_long_forward_dp(&stream_setup.streams[stream_id].dev_mem,
                                 &stream_setup.streams[stream_id].cudastream);
-  dpct::sync_barrier(stream_setup.streams[stream_id].stopevent,
-                     stream_setup.streams[stream_id].cudastream);
+
+  *(stream_setup.streams[stream_id].stopevent) = stream_setup.streams[stream_id].cudastream->single_task([=]()-> void{});
+
   plmem_async_d2h_long_memcpy(&stream_setup.streams[stream_id]);
   stream_setup.streams[stream_id].busy = true;
   sycl_check(*(stream_setup.streams[stream_id].cudastream));

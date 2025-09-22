@@ -909,9 +909,9 @@ void plmem_stream_cleanup() {
   for (int i = 0; i < stream_setup.num_stream; i++) {
     try {
       dpct::get_current_device().destroy_queue(stream_setup.streams[i].cudastream);
-      dpct::destroy_event(stream_setup.streams[i].stopevent);
-      dpct::destroy_event(stream_setup.streams[i].startevent);
-      dpct::destroy_event(stream_setup.streams[i].long_kernel_event);
+      delete stream_setup.streams[i].stopevent;
+      delete stream_setup.streams[i].startevent;
+      delete stream_setup.streams[i].long_kernel_event;
     } catch (const sycl::exception &e) {
       fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
       fflush(stderr);

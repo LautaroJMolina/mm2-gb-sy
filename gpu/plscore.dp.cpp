@@ -584,9 +584,9 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     size_t total_n = dev_mem->total_n;
     size_t cut_num = dev_mem->num_cut;
     size_t buffer_size_long = dev_mem->buffer_size_long;
-    dpct::dim3 shortDimGrid(score_kernel_config.short_griddim, 1, 1);
-    dpct::dim3 midDimGrid(score_kernel_config.mid_griddim, 1, 1);
-    dpct::dim3 shortDimBlock(score_kernel_config.short_blockdim, 1, 1);
+    sycl::range<3> shortDimGrid(score_kernel_config.short_griddim, 1, 1);
+    sycl::range<3> midDimGrid(score_kernel_config.mid_griddim, 1, 1);
+    sycl::range<3> shortDimBlock(score_kernel_config.short_blockdim, 1, 1);
 
     // Run kernel;
     (*stream)->memset(dev_mem->d_mid_seg_count, 0, sizeof(unsigned int));
@@ -826,10 +826,10 @@ void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
     size_t total_n = dev_mem->total_n;
     size_t cut_num = dev_mem->num_cut;
     size_t buffer_size_long = dev_mem->buffer_size_long;
-    dpct::dim3 longDimGrid(score_kernel_config.long_griddim, 1, 1);
+    sycl::range<3> longDimGrid(score_kernel_config.long_griddim, 1, 1);
 
 #ifdef DEBUG_VERBOSE
-    fprintf(stderr, "[Debug] %s (%s:%d) Long Grid Dim = %d\n", __func__, __FILE__, __LINE__, longDimGrid.x);
+    fprintf(stderr, "[Debug] %s (%s:%d) Long Grid Dim = %zu\n", __func__, __FILE__, __LINE__, longDimGrid[2]);
 #endif // DEBUG_VERBOSE
 
 
@@ -888,9 +888,9 @@ void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
                                     sycl::queue **stream) {
     size_t total_n = dev_mem->total_n;
     size_t cut_num = dev_mem->num_cut;
-    dpct::dim3 DimBlock(score_kernel_config.long_blockdim, 1, 1);
-    dpct::dim3 longDimGrid(score_kernel_config.long_griddim, 1, 1);
-    dpct::dim3 shortDimGrid(score_kernel_config.short_griddim, 1, 1);
+    sycl::range<3> DimBlock(score_kernel_config.long_blockdim, 1, 1);
+    sycl::range<3> longDimGrid(score_kernel_config.long_griddim, 1, 1);
+    sycl::range<3> shortDimGrid(score_kernel_config.short_griddim, 1, 1);
 
     // Run kernel
     // printf("Grid Dim, %d\n", DimGrid.x);
