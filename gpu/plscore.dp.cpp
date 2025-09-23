@@ -341,6 +341,17 @@ void score_generation_short(
 
     size_t long_seg_start_idx;
 
+    // Atomic refs
+    sycl::atomic_ref<unsigned long long, sycl::memory_order::relaxed,
+        sycl::memory_scope::device, sycl::access::address_space::generic_space> \
+        atomic_total_n_long(*reinterpret_cast<unsigned long long*>(total_n_long));
+    sycl::atomic_ref<unsigned long long, sycl::memory_order::relaxed,
+        sycl::memory_scope::device, sycl::access::address_space::generic_space> \
+        atomic_mid_seg_count(*reinterpret_cast<unsigned long long*>(mid_seg_count));
+    sycl::atomic_ref<unsigned long long, sycl::memory_order::relaxed,
+        sycl::memory_scope::device, sycl::access::address_space::generic_space> \
+        atomic_long_seg_count(*reinterpret_cast<unsigned long long*>(long_seg_count));
+
     for (int segid = bid; segid < seg_count;
          segid += item_ct1.get_group_range(2)) {
         size_t start_idx = seg_start_arr[segid];
@@ -358,30 +369,24 @@ void score_generation_short(
             }
             ++end_segid;
         }
+
+        unsigned long long ref_tmp1 = static_cast<unsigned long long>(end_idx - start_idx);
+        
         if (end_segid > segid + long_seg_cutoff) {
             if (tid == 0) {
                 /* Allocate space in long seg buffer */
-                long_seg_start_idx = dpct::atomic_fetch_add<
-                    sycl::access::address_space::generic_space>(
-                    (unsigned long long int *)total_n_long,
-                    (unsigned long long int)end_idx - start_idx);
+                long_seg_start_idx = atomic_total_n_long.fetch_add(ref_tmp1);
                 if (long_seg_start_idx + (end_idx - start_idx) >= buffer_size_long){ // long segement buffer is full
+                    unsigned long long ref_tmp2 = static_cast<unsigned long long>(start_idx - end_idx);
                 /* rollback total_n_long */
-                    dpct::atomic_fetch_add<
-                        sycl::access::address_space::generic_space>(
-                        (unsigned long long int *)total_n_long,
-                        (unsigned long long int)(start_idx - end_idx));
+                    atomic_total_n_long.fetch_add(ref_tmp2);
                     long_seg_start_idx = SIZE_MAX;
                     // fallback to mid kernel
-                    int mid_seg_idx = dpct::atomic_fetch_add<
-                        sycl::access::address_space::generic_space>(
-                        (unsigned long long int *)mid_seg_count, 1);
+                    int mid_seg_idx = atomic_mid_seg_count.fetch_add(1);
                     mid_seg[mid_seg_idx].start_idx = start_idx;
                     mid_seg[mid_seg_idx].end_idx = end_idx;
                 } else {
-                    int long_seg_idx = dpct::atomic_fetch_add<
-                        sycl::access::address_space::generic_space>(
-                        (unsigned long long int *)long_seg_count, 1);
+                    int long_seg_idx = atomic_long_seg_count.fetch_add(1);
                     long_seg[long_seg_idx].start_idx = long_seg_start_idx;
                     long_seg[long_seg_idx].end_idx = long_seg_start_idx + (end_idx - start_idx);
                     long_seg_og[long_seg_idx].start_idx = start_idx;
@@ -410,9 +415,7 @@ void score_generation_short(
             continue;
         } else if (end_segid > segid + mid_seg_cutoff) {
             if (tid == 0) {
-                int mid_seg_idx = dpct::atomic_fetch_add<
-                    sycl::access::address_space::generic_space>(mid_seg_count,
-                                                                1);
+                int mid_seg_idx = atomic_mid_seg_count.fetch_add(1);
                 mid_seg[mid_seg_idx].start_idx = start_idx;
                 mid_seg[mid_seg_idx].end_idx = end_idx;
             }
@@ -497,6 +500,11 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
     performance if there is no access to global memory.
     */
     item_ct1.barrier();
+
+    sycl::atomic_ref<unsigned, sycl::memory_order::relaxed,
+        sycl::memory_scope::device, sycl::access::address_space::generic_space> \
+        atomic_curr_long_segid(curr_long_segid);
+
     while (segid < *long_seg_count) {
         seg_t seg = long_seg[map[segid]]; // sorted
         // seg_t seg = long_seg[segid]; // unsorted
@@ -508,8 +516,7 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
                                 seg.end_idx, f, p, misc);
         seg_count++;
         if (tid == 0) segid =
-            dpct::atomic_fetch_add<sycl::access::address_space::generic_space>(
-                &curr_long_segid, 1);
+            atomic_curr_long_segid.fetch_add(1);
         /*
         DPCT1118:6: SYCL group functions and algorithms must be encountered in
         converged control flow. You may need to adjust the code.
