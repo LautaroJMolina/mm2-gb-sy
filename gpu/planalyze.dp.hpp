@@ -6,10 +6,6 @@
  * Enable individual verbose prints in planalyze.cu 
  */
 
-#ifdef DEBUG_PRINT
-#define DPCT_PROFILING_ENABLED
-#endif
-
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
 #include "plchain.h"

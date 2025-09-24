@@ -1,10 +1,6 @@
 #ifndef _PLRANGE_CUH_
 #define _PLRANGE_CUH_
 
-#ifdef DEBUG_PRINT
-#define DPCT_PROFILING_ENABLED
-#endif
-
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
 #include "plmem.dp.hpp"

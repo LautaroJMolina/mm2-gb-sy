@@ -1,10 +1,6 @@
 #ifndef _PLSCORE_CUH_
 #define _PLSCORE_CUH_
 
-#ifdef DEBUG_PRINT
-#define DPCT_PROFILING_ENABLED
-#endif
-
 #include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
 #include "../mmpriv.h"
