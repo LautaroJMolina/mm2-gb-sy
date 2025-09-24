@@ -15,9 +15,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+
+#ifdef DEBUG_PRINT
+const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order(), sycl::property::queue::enable_profiling()};
+#else
+const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order()};
+#endif
+
 void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
                            int range_grid_size, size_t buffer_size_long) try {
-    sycl::queue q(sycl::property::queue::in_order{});
+    sycl::queue q(prop_list);
     sycl::queue &q_ct1 = q; 
 #ifdef DEBUG_PRINT
   size_t host_mem_size;
@@ -52,7 +59,7 @@ void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
 }
 
 void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) try {
-  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue q(prop_list);
   sycl::queue &q_ct1 = q; 
 #ifdef DEBUG_PRINT
   size_t host_mem_size;
@@ -80,7 +87,7 @@ void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) try {
 }
 
 void plmem_free_host_mem(hostMemPtr *host_mem) try {
-  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue q(prop_list);
   sycl::queue &q_ct1 = q; 
   sycl::free(host_mem->ax, q_ct1);
   sycl::free(host_mem->ay, q_ct1);
@@ -99,7 +106,7 @@ void plmem_free_host_mem(hostMemPtr *host_mem) try {
 }
 
 void plmem_free_long_mem(longMemPtr *long_mem) try {
-  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue q(prop_list);
   sycl::queue &q_ct1 = q; 
   sycl::free(long_mem->long_segs_og_idx, q_ct1);
   sycl::free(long_mem->f_long, q_ct1);
@@ -114,7 +121,7 @@ void plmem_free_long_mem(longMemPtr *long_mem) try {
 
 void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
                              int range_grid_size, int num_cut) try {
-  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue q(prop_list);
   sycl::queue &q_ct1 = q; 
   // data array
   dev_mem->d_ax = sycl::malloc_device<int32_t>(anchor_per_batch, q_ct1);
@@ -180,7 +187,7 @@ void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
 }
 
 void plmem_free_device_mem(deviceMemPtr *dev_mem) try {
-  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue q(prop_list);
   sycl::queue &q_ct1 = q; 
   sycl::free(dev_mem->d_ax, q_ct1);
   sycl::free(dev_mem->d_ay, q_ct1);
@@ -407,7 +414,7 @@ void plmem_async_h2d_memcpy(stream_ptr_t *stream_ptrs) {
 }
 
 void plmem_sync_h2d_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem) try {
-  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue q(prop_list);
   sycl::queue &q_ct1 = q; 
   q_ct1.memcpy(dev_mem->d_ax, host_mem->ax, sizeof(int32_t) * host_mem->total_n)
       .wait_and_throw();
@@ -589,7 +596,7 @@ void plmem_async_d2h_long_memcpy(stream_ptr_t *stream_ptrs) {
 }
 
 void plmem_sync_d2h_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem) try {
-  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue q(prop_list);
   sycl::queue &q_ct1 = q; 
   q_ct1.memcpy(host_mem->f, dev_mem->d_f, sizeof(int32_t) * host_mem->total_n)
       .wait_and_throw();
@@ -807,7 +814,7 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
                              int *min_anchors_, char *gpu_config_file) {
   dpct::device_ext &dev_ct1 = dpct::get_current_device();
   // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
-  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue q(prop_list);
   sycl::queue &q_ct1 = q; 
 
   int num_stream;

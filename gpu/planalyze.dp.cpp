@@ -11,9 +11,15 @@
 #include <dpct/dpct.hpp>
 #include "planalyze.dp.hpp"
 
+#ifdef DEBUG_PRINT
+const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order(), sycl::property::queue::enable_profiling()};
+#else
+const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order()};
+#endif
+
 #ifdef DEBUG_CHECK
 void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]) {
-    sycl::queue q(sycl::property::queue::in_order{});
+    sycl::queue q(prop_list);
     sycl::queue &q_ct1 = q; 
     stream.cudastream->wait();
     size_t total_n = stream.host_mems[uid].total_n;
@@ -163,7 +169,7 @@ void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]) {
 #ifdef DEBUG_CHECK
 
 void planalyze_long_kernel(stream_ptr_t stream, float *throughput) {
-    sycl::queue q(sycl::property::queue::in_order{});
+    sycl::queue q(prop_list);
     sycl::queue &q_ct1 = q; 
     deviceMemPtr* dev_mem = &stream.dev_mem;
     longMemPtr* long_mem = &stream.long_mem;

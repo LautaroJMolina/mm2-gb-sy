@@ -11,6 +11,12 @@
 #include <assert.h>
 #include "plrange.dp.hpp"
 
+#ifdef DEBUG_PRINT
+const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order(), sycl::property::queue::enable_profiling()};
+#else
+const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order()};
+#endif
+
 /* 
 
 CUDA/HIP kernel for range selection using forward chaining
@@ -240,7 +246,7 @@ extern "C" {
 range_kernel_config_t range_kernel_config;
 
 void plrange_upload_misc(Misc misc) try {
-  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue q(prop_list);
   sycl::queue &q_ct1 = q; 
   q_ct1.memcpy(d_max_dist_x.get_ptr(), &misc.max_dist_x, sizeof(int));
   q_ct1.memcpy(d_max_iter.get_ptr(), &misc.max_iter, sizeof(int));

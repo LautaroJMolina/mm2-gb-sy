@@ -11,6 +11,12 @@
 #include <assert.h>
 #include "plscore.dp.hpp"
 
+#ifdef DEBUG_PRINT
+const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order(), sycl::property::queue::enable_profiling()};
+#else
+const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order()};
+#endif
+
 /* 
 
 Parallel chaining helper functions with CUDA
@@ -573,7 +579,7 @@ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid,
 score_kernel_config_t score_kernel_config;
 
 void plscore_upload_misc(Misc input_misc) try {
-  sycl::queue q(sycl::property::queue::in_order{});
+  sycl::queue q(prop_list);
   sycl::queue &q_ct1 = q; 
   q_ct1.memcpy(misc.get_ptr(), &input_misc, sizeof(Misc));
   q_ct1.memcpy(long_seg_cutoff.get_ptr(), &score_kernel_config.long_seg_cutoff, sizeof(int));
