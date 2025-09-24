@@ -660,14 +660,15 @@ void plmem_config_kernels(cJSON *json) {
       get_json_int(range_config_json, "anchor_per_block");
 
   cJSON *score_config_json = cJSON_GetObjectItem(json, "score_kernel");
-  dpct::device_info device_prop;
-  dpct::get_device(0).get_device_info(device_prop);
-  score_kernel_config.short_blockdim = device_prop.get_max_sub_group_size();
+  sycl::device dev = sycl::device(sycl::default_selector_v);
+
+  score_kernel_config.short_blockdim = dev.get_info<sycl::info::device::sub_group_sizes>().back();
+
   // Prevent exceeding max supported work group size of 1024
-  if (device_prop.get_max_work_group_size() > 1024) {
+  if (dev.get_info<sycl::info::device::max_work_group_size>() > 1024) {
       score_kernel_config.long_blockdim = 1024;
   } else {
-      score_kernel_config.long_blockdim = device_prop.get_max_work_group_size();
+      score_kernel_config.long_blockdim = dev.get_info<sycl::info::device::max_work_group_size>();
   }
   score_kernel_config.mid_blockdim =
       get_json_int(score_config_json, "mid_blockdim");
@@ -703,15 +704,13 @@ void plmem_config_stream(size_t *max_range_grid_, size_t *max_num_cut_,
   *max_range_grid_ = max_range_grid;
   *max_num_cut_ = max_num_cut;
 
-  dpct::device_info prop;
-  dpct::get_device(0).get_device_info(prop);
   // sycl_check();
 
   /*
   DPCT1022:50: There is no exact match between the maxGridSize and the
   max_nd_range size. Verify the correctness of the code.
   */
-  if (*max_range_grid_ > prop.get_max_nd_range_size<int *>()[0]) {
+  if (*max_range_grid_ > 2147483647) {
     fprintf(stderr, "Invalid memory config!\n");
     exit(1);
   }
@@ -743,11 +742,10 @@ void plmem_config_batch(cJSON *json, int *num_stream_, int *min_n_,
   }
 
   /* Determine configuration smartly */
-  dpct::device_info prop;
-  dpct::get_device(0).get_device_info(prop);
+  sycl::device dev = sycl::device(sycl::default_selector_v);
 
   size_t avail_mem_per_stream =
-      (prop.get_global_mem_size() / *num_stream_) * 0.9;
+      (dev.get_info<sycl::info::device::global_mem_size>() / *num_stream_) * 0.9;
 
   // memory per anchor = (ax + ay + range + f + p) + (start_idx + read_end_idx
   // + cut_start_idx) + cut + long_seg size: F1 = ax + ay + range + f + p; F2
