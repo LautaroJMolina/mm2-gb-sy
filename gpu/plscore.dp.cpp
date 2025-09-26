@@ -19,10 +19,9 @@ Parallel chaining helper functions with CUDA
 
 */
 
-inline dpct::constant_memory<Misc, 0> misc;
-inline dpct::constant_memory<int, 0> long_seg_cutoff;
-inline dpct::constant_memory<int, 0> mid_seg_cutoff;
-inline dpct::global_memory<unsigned, 0> curr_long_segid;
+Misc *misc;
+int *seg_cutoff;
+unsigned *curr_long_segid;
 
 /* arithmetic functions begin */
 
@@ -576,10 +575,28 @@ score_kernel_config_t score_kernel_config;
 
 void plscore_upload_misc(Misc input_misc) try {
   sycl::queue q(prop_list);
-  sycl::queue &q_ct1 = q; 
-  q_ct1.memcpy(misc.get_ptr(), &input_misc, sizeof(Misc));
-  q_ct1.memcpy(long_seg_cutoff.get_ptr(), &score_kernel_config.long_seg_cutoff, sizeof(int));
-  q_ct1.memcpy(mid_seg_cutoff.get_ptr(), &score_kernel_config.mid_seg_cutoff, sizeof(int));
+  sycl::queue &q_ct1 = q;
+  
+  misc = sycl::malloc_device<Misc>(1, q_ct1);
+  seg_cutoff = sycl::malloc_device<int>(2, q_ct1);
+  curr_long_segid = sycl::malloc_device<unsigned>(1, q_ct1);
+
+  q_ct1.memcpy(misc, &input_misc, sizeof(Misc));
+  q_ct1.memcpy(&seg_cutoff[0], &score_kernel_config.long_seg_cutoff, sizeof(int));
+  q_ct1.memcpy(&seg_cutoff[1], &score_kernel_config.mid_seg_cutoff, sizeof(int));
+  q_ct1.wait_and_throw();
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
+}
+
+void plscore_free_misc() try {
+  sycl::queue q(prop_list);
+  sycl::queue &q_ct1 = q;
+
+  sycl::free(misc, q_ct1);
+  sycl::free(seg_cutoff, q_ct1);
   q_ct1.wait_and_throw();
 } catch (const sycl::exception &e) {
   fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
@@ -601,14 +618,11 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     (*stream)->memset(dev_mem->d_mid_seg_count, 0, sizeof(unsigned int));
 
     if (score_kernel_config.short_blockdim == 32 ){
-    misc.init(**stream);
-    long_seg_cutoff.init(**stream);
-    mid_seg_cutoff.init(**stream);
 
     (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc.get_ptr();
-      auto long_seg_cutoff_ptr_ct1 = long_seg_cutoff.get_ptr();
-      auto mid_seg_cutoff_ptr_ct1 = mid_seg_cutoff.get_ptr();
+      auto misc_ptr_ct1 = misc;
+      auto long_seg_cutoff_ptr_ct1 = &seg_cutoff[0];
+      auto mid_seg_cutoff_ptr_ct1 = &seg_cutoff[1];
 
       sycl::local_accessor<size_t, 0> long_seg_start_idx_shared_acc_ct1(cgh);
 
@@ -648,14 +662,11 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
           });
     });
     } else if (score_kernel_config.short_blockdim == 64) {
-    misc.init(**stream);
-    long_seg_cutoff.init(**stream);
-    mid_seg_cutoff.init(**stream);
 
     (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc.get_ptr();
-      auto long_seg_cutoff_ptr_ct1 = long_seg_cutoff.get_ptr();
-      auto mid_seg_cutoff_ptr_ct1 = mid_seg_cutoff.get_ptr();
+      auto misc_ptr_ct1 = misc;
+      auto long_seg_cutoff_ptr_ct1 = &seg_cutoff[0];
+      auto mid_seg_cutoff_ptr_ct1 = &seg_cutoff[1];
 
       sycl::local_accessor<size_t, 0> long_seg_start_idx_shared_acc_ct1(cgh);
 
@@ -705,10 +716,9 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
 
 
     if (score_kernel_config.mid_blockdim == 128){
-    misc.init(**stream);
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc.get_ptr();
+      auto misc_ptr_ct1 = misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -730,10 +740,9 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                        });
     });
     } else if (score_kernel_config.mid_blockdim == 256){
-    misc.init(**stream);
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc.get_ptr();
+      auto misc_ptr_ct1 = misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -760,10 +769,9 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
         limit. To get the device limit, query info::device::max_work_group_size.
         Adjust the work-group size if needed.
         */
-    misc.init(**stream);
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc.get_ptr();
+      auto misc_ptr_ct1 = misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -790,10 +798,9 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
         limit. To get the device limit, query info::device::max_work_group_size.
         Adjust the work-group size if needed.
         */
-    misc.init(**stream);
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc.get_ptr();
+      auto misc_ptr_ct1 = misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -848,12 +855,10 @@ void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
     limit. To get the device limit, query info::device::max_work_group_size.
     Adjust the work-group size if needed.
     */
-    misc.init(**stream);
-    curr_long_segid.init(**stream);
 
     (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc.get_ptr();
-      auto curr_long_segid_ptr_ct1 = curr_long_segid.get_ptr();
+      auto misc_ptr_ct1 = misc;
+      auto curr_long_segid_ptr_ct1 = curr_long_segid;
 
       sycl::local_accessor<unsigned int, 0> segid_acc_ct1(cgh);
 
@@ -909,10 +914,9 @@ void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
     Adjust the work-group size if needed.
     */
   {
-    misc.init(**stream);
 
     (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc.get_ptr();
+      auto misc_ptr_ct1 = misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;

@@ -20,9 +20,8 @@ CUDA/HIP kernel for range selection using forward chaining
 */
 
 /* kernels begin */
-inline dpct::constant_memory<int, 0> d_max_dist_x;
-inline dpct::constant_memory<int, 0> d_max_iter;
-inline dpct::constant_memory<int, 0> d_cut_check_anchors;
+
+int *d_vec;
 
 inline int64_t range_binary_search(const int32_t* ax, const int32_t* rev, int64_t i, int64_t st_end,
                                    int d_max_dist_x){
@@ -244,9 +243,24 @@ range_kernel_config_t range_kernel_config;
 void plrange_upload_misc(Misc misc) try {
   sycl::queue q(prop_list);
   sycl::queue &q_ct1 = q; 
-  q_ct1.memcpy(d_max_dist_x.get_ptr(), &misc.max_dist_x, sizeof(int));
-  q_ct1.memcpy(d_max_iter.get_ptr(), &misc.max_iter, sizeof(int));
-  q_ct1.memcpy(d_cut_check_anchors.get_ptr(), &range_kernel_config.cut_check_anchors, sizeof(int));
+
+  d_vec = sycl::malloc_device<int>(3, q_ct1);
+
+  q_ct1.memcpy(&d_vec[0], &misc.max_dist_x, sizeof(int));
+  q_ct1.memcpy(&d_vec[1], &misc.max_iter, sizeof(int));
+  q_ct1.memcpy(&d_vec[2], &range_kernel_config.cut_check_anchors, sizeof(int));
+  q_ct1.wait_and_throw();
+} catch (const sycl::exception &e) {
+  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
+  fflush(stderr);
+  exit(EXIT_FAILURE);
+}
+
+void plrange_free_misc() try {
+  sycl::queue q(prop_list);
+  sycl::queue &q_ct1 = q; 
+
+  sycl::free(d_vec, q_ct1);
   q_ct1.wait_and_throw();
 } catch (const sycl::exception &e) {
   fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
@@ -269,14 +283,10 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
     Adjust the work-group size if needed.
     */
   {
-    d_max_dist_x.init(**stream);
-    d_max_iter.init(**stream);
-    d_cut_check_anchors.init(**stream);
-
     *start_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      auto d_max_dist_x_ptr_ct1 = d_max_dist_x.get_ptr();
-      auto d_max_iter_ptr_ct1 = d_max_iter.get_ptr();
-      auto d_cut_check_anchors_ptr_ct1 = d_cut_check_anchors.get_ptr();
+      auto d_max_dist_x_ptr_ct1 = &d_vec[0];
+      auto d_max_iter_ptr_ct1 = &d_vec[1];
+      auto d_cut_check_anchors_ptr_ct1 = &d_vec[2];
 
       const int32_t *dev_mem_d_ax_ct0 = dev_mem->d_ax;
       const int32_t *dev_mem_d_xrev_ct1 = dev_mem->d_xrev;
@@ -325,14 +335,10 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
     Adjust the work-group size if needed.
     */
   {
-    d_max_dist_x.init();
-    d_max_iter.init();
-    d_cut_check_anchors.init();
-
     dpct::get_in_order_queue().submit([&](sycl::handler &cgh) {
-      auto d_max_dist_x_ptr_ct1 = d_max_dist_x.get_ptr();
-      auto d_max_iter_ptr_ct1 = d_max_iter.get_ptr();
-      auto d_cut_check_anchors_ptr_ct1 = d_cut_check_anchors.get_ptr();
+      auto d_max_dist_x_ptr_ct1 = &d_vec[0];
+      auto d_max_iter_ptr_ct1 = &d_vec[1];
+      auto d_cut_check_anchors_ptr_ct1 = &d_vec[2];
 
       const int32_t *dev_mem_d_ax_ct0 = dev_mem->d_ax;
       const int32_t *dev_mem_d_xrev_ct1 = dev_mem->d_xrev;

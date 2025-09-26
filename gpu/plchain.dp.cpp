@@ -607,6 +607,8 @@ void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt,
 
 void free_stream_gpu(int n_threads) {
   plmem_stream_cleanup();
+  plrange_free_misc();
+  plscore_free_misc();
 
   size_t gpu_free_mem, gpu_total_mem;
   /*
