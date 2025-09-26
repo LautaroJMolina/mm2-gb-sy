@@ -812,8 +812,6 @@ void plmem_initialize(size_t *max_total_n_, int *max_read_, int *min_anchors_) {
 // initialize global variable stream_setup
 void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
                              int *min_anchors_, char *gpu_config_file) {
-  dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  // sycl::queue &q_ct1 = dev_ct1.in_order_queue();
   sycl::queue q(prop_list);
   sycl::queue &q_ct1 = q; 
 
@@ -850,7 +848,7 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
 
   for (int i = 0; i < num_stream; i++) {
     stream_setup.streams[i].busy = false;
-    stream_setup.streams[i].cudastream = dev_ct1.create_queue();
+    stream_setup.streams[i].cudastream = new sycl::queue(prop_list);
     stream_setup.streams[i].stopevent = new sycl::event();
     stream_setup.streams[i].startevent = new sycl::event();
     stream_setup.streams[i].long_kernel_event = new sycl::event();
@@ -913,7 +911,7 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
 void plmem_stream_cleanup() {
   for (int i = 0; i < stream_setup.num_stream; i++) {
     try {
-      dpct::get_current_device().destroy_queue(stream_setup.streams[i].cudastream);
+      delete stream_setup.streams[i].cudastream;
       delete stream_setup.streams[i].stopevent;
       delete stream_setup.streams[i].startevent;
       delete stream_setup.streams[i].long_kernel_event;
