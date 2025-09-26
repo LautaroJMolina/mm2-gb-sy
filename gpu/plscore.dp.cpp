@@ -1,11 +1,12 @@
 #include <sycl/sycl.hpp>
-#include <dpct/dpct.hpp>
 #include "syclcheck.cpp"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
 #include "plscore.dp.hpp"
+
+namespace sycl = acpp::sycl;
 
 #ifdef DEBUG_PRINT
 const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order(), sycl::property::queue::enable_profiling()};
@@ -90,7 +91,7 @@ inline int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t a
     These two calls do not provide exactly the same functionality. Check the
     potential precision and/or performance issues for the generated code.
     */
-    const int32_t dd = sycl::abs_diff(dr, dq) + 0;
+    const int32_t dd = sycl::abs(dr) - sycl::abs(dq);
 
     if (dq <= 0 || dq > max_dist_x ||
         (is_same_sid && (dr == 0 || 
@@ -120,9 +121,8 @@ inline int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t a
 
 inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range, 
                     const size_t start_idx, const size_t end_idx,
-                    int32_t* f, uint16_t* p
-, Misc misc){
-    auto item_ct1 = sycl::ext::oneapi::this_work_item::get_nd_item<3>();
+                    int32_t* f, uint16_t* p,
+                    Misc misc,sycl::nd_item<3> item_ct1){
     const Misc blk_misc = misc;
     int tid = item_ct1.get_local_id(2);
     // init f and p
@@ -132,8 +132,7 @@ inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* ancho
         p[i] = 0;
     }
         sycl::group_barrier(
-            sycl::ext::oneapi::this_work_item::
-                get_sub_group()); // NOTE: single warp, no need to sync
+            item_ct1.get_sub_group()); // NOTE: single warp, no need to sync
     for (size_t i=start_idx; i < end_idx; i++) {
         int32_t range_i = range[i];
         for (int32_t j = tid; j < range_i; j += item_ct1.get_local_range(2)) {
@@ -155,8 +154,7 @@ inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* ancho
             }
         }
         sycl::group_barrier(
-            sycl::ext::oneapi::this_work_item::
-                get_sub_group()); // NOTE: single warp, no need to sync
+            item_ct1.get_sub_group()); // NOTE: single warp, no need to sync
     }
     
 }
@@ -164,9 +162,8 @@ inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* ancho
 
 inline void compute_sc_seg_multi_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range, 
                     const size_t start_idx, const size_t end_idx,
-                    int32_t* f, uint16_t* p
-, Misc misc){
-    auto item_ct1 = sycl::ext::oneapi::this_work_item::get_nd_item<3>();
+                    int32_t* f, uint16_t* p, 
+                    Misc misc,sycl::nd_item<3> item_ct1){
     const Misc blk_misc = misc;
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
@@ -335,8 +332,9 @@ void score_generation_short(
                                 ,seg_t *mid_seg, unsigned int *mid_seg_count,
                                 Misc misc, int long_seg_cutoff,
                                 int mid_seg_cutoff,
-                                size_t &long_seg_start_idx_shared){
-    auto item_ct1 = sycl::ext::oneapi::this_work_item::get_nd_item<3>();
+                                size_t &long_seg_start_idx_shared,
+                                sycl::nd_item<3> item_ct1){
+    // auto item_ct1 = item;
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
 
@@ -401,9 +399,9 @@ void score_generation_short(
             }
             // broadcast long_seg_start_idx to all scalar registers
             if (tid == 0) long_seg_start_idx_shared = long_seg_start_idx;
-            sycl::group_barrier(sycl::ext::oneapi::this_work_item::get_sub_group());
+            sycl::group_barrier(item_ct1.get_sub_group());
             long_seg_start_idx = long_seg_start_idx_shared;
-            sycl::group_barrier(sycl::ext::oneapi::this_work_item::get_sub_group());
+            sycl::group_barrier(item_ct1.get_sub_group());
             if (long_seg_start_idx == SIZE_MAX)
                 continue;  // failed to allocate long_seg buffer
             for (uint64_t idx = tid; idx < end_idx - start_idx;
@@ -423,7 +421,7 @@ void score_generation_short(
             continue;
         }
         compute_sc_seg_one_wf(anchors_x, anchors_y, sid, range, start_idx,
-                              end_idx, f, p, misc);
+                              end_idx, f, p, misc, item_ct1);
     }
 }
 
@@ -432,8 +430,7 @@ template <size_t mid_block_size>
 
 void score_generation_mid(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
-                                int32_t* f, uint16_t* p, Misc misc){
-    auto item_ct1 = sycl::ext::oneapi::this_work_item::get_nd_item<3>();
+                                int32_t* f, uint16_t* p, Misc misc, sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
 
@@ -445,7 +442,7 @@ void score_generation_mid(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, i
         converged control flow. You may need to adjust the code.
         */
         compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx,
-                                seg.end_idx, f, p, misc);
+                                seg.end_idx, f, p, misc, item_ct1);
     }
 }
 
@@ -453,8 +450,7 @@ template <size_t long_block_size>
 
 void score_generation_long(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
-                                int32_t* f, uint16_t* p, Misc misc){
-    auto item_ct1 = sycl::ext::oneapi::this_work_item::get_nd_item<3>();
+                                int32_t* f, uint16_t* p, Misc misc,sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
 
@@ -466,7 +462,7 @@ void score_generation_long(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, 
         converged control flow. You may need to adjust the code.
         */
         compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx,
-                                seg.end_idx, f, p, misc);
+                                seg.end_idx, f, p, misc, item_ct1);
     }
 }
 
@@ -477,8 +473,7 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
                                 seg_t *long_seg, unsigned int* long_seg_count,
                                 int32_t* f, uint16_t* p, unsigned int* map,
                                 Misc misc, unsigned &curr_long_segid,
-                                unsigned int &segid){
-    auto item_ct1 = sycl::ext::oneapi::this_work_item::get_nd_item<3>();
+                                unsigned int &segid,sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
     unsigned int seg_count = 0;
@@ -514,7 +509,7 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
         converged control flow. You may need to adjust the code.
         */
         compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx,
-                                seg.end_idx, f, p, misc);
+                                seg.end_idx, f, p, misc, item_ct1);
         seg_count++;
         if (tid == 0) segid =
             atomic_curr_long_segid.fetch_add(1);
@@ -534,14 +529,13 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
 void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                         size_t *seg_start_arr, 
                         int32_t* f, uint16_t* p, size_t total_n, size_t seg_count,
-                        Misc misc) {
+                        Misc misc,sycl::nd_item<3> item_ct1) {
 
     // NOTE: each block deal with one batch 
     // the number of threads in a block is fixed, so we need to calculate iter
     // n = end_idx_arr - start_idx_arr
     // iter = (range[i] - 1) / num_threads + 1
 
-    auto item_ct1 = sycl::ext::oneapi::this_work_item::get_nd_item<3>();
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
     for (int segid = bid; segid < seg_count;
@@ -564,7 +558,7 @@ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid,
         }
         // assert(end_idx <= total_n);
         compute_sc_seg_one_wf(anchors_x, anchors_y, sid, range, start_idx,
-                              end_idx, f, p, misc);
+                              end_idx, f, p, misc, item_ct1);
     }
 }
 
@@ -658,7 +652,8 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 dev_mem_d_long_seg_og_ct16, dev_mem_d_long_seg_count_ct17,
                 dev_mem_d_mid_seg_ct18, dev_mem_d_mid_seg_count_ct19,
                 *misc_ptr_ct1, *long_seg_cutoff_ptr_ct1,
-                *mid_seg_cutoff_ptr_ct1, long_seg_start_idx_shared_acc_ct1);
+                *mid_seg_cutoff_ptr_ct1, long_seg_start_idx_shared_acc_ct1,
+                item_ct1);
           });
     });
     } else if (score_kernel_config.short_blockdim == 64) {
@@ -702,7 +697,8 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 dev_mem_d_long_seg_og_ct16, dev_mem_d_long_seg_count_ct17,
                 dev_mem_d_mid_seg_ct18, dev_mem_d_mid_seg_count_ct19,
                 *misc_ptr_ct1, *long_seg_cutoff_ptr_ct1,
-                *mid_seg_cutoff_ptr_ct1, long_seg_start_idx_shared_acc_ct1);
+                *mid_seg_cutoff_ptr_ct1, long_seg_start_idx_shared_acc_ct1,
+                item_ct1);
           });
     });
     } else {
@@ -736,7 +732,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                              dev_mem_d_ax_ct0, dev_mem_d_ay_ct1,
                              dev_mem_d_sid_ct2, dev_mem_d_range_ct3,
                              dev_mem_d_mid_seg_ct4, dev_mem_d_mid_seg_count_ct5,
-                             dev_mem_d_f_ct6, dev_mem_d_p_ct7, *misc_ptr_ct1);
+                             dev_mem_d_f_ct6, dev_mem_d_p_ct7, *misc_ptr_ct1, item_ct1);
                        });
     });
     } else if (score_kernel_config.mid_blockdim == 256){
@@ -760,7 +756,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                              dev_mem_d_ax_ct0, dev_mem_d_ay_ct1,
                              dev_mem_d_sid_ct2, dev_mem_d_range_ct3,
                              dev_mem_d_mid_seg_ct4, dev_mem_d_mid_seg_count_ct5,
-                             dev_mem_d_f_ct6, dev_mem_d_p_ct7, *misc_ptr_ct1);
+                             dev_mem_d_f_ct6, dev_mem_d_p_ct7, *misc_ptr_ct1, item_ct1);
                        });
     });
     } else if (score_kernel_config.mid_blockdim == 512){
@@ -789,7 +785,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                              dev_mem_d_ax_ct0, dev_mem_d_ay_ct1,
                              dev_mem_d_sid_ct2, dev_mem_d_range_ct3,
                              dev_mem_d_mid_seg_ct4, dev_mem_d_mid_seg_count_ct5,
-                             dev_mem_d_f_ct6, dev_mem_d_p_ct7, *misc_ptr_ct1);
+                             dev_mem_d_f_ct6, dev_mem_d_p_ct7, *misc_ptr_ct1, item_ct1);
                        });
     });
     } else if (score_kernel_config.mid_blockdim == 1024){
@@ -819,7 +815,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 dev_mem_d_ax_ct0, dev_mem_d_ay_ct1, dev_mem_d_sid_ct2,
                 dev_mem_d_range_ct3, dev_mem_d_mid_seg_ct4,
                 dev_mem_d_mid_seg_count_ct5, dev_mem_d_f_ct6, dev_mem_d_p_ct7,
-                *misc_ptr_ct1);
+                *misc_ptr_ct1, item_ct1);
           });
     });
     } else {
@@ -881,7 +877,8 @@ void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
                 dev_mem_d_sid_long_ct2, dev_mem_d_range_long_ct3,
                 dev_mem_d_long_seg_ct4, dev_mem_d_long_seg_count_ct5,
                 dev_mem_d_f_long_ct6, dev_mem_d_p_long_ct7, dev_mem_d_map_ct8,
-                *misc_ptr_ct1, *curr_long_segid_ptr_ct1, segid_acc_ct1);
+                *misc_ptr_ct1, *curr_long_segid_ptr_ct1, segid_acc_ct1,
+                item_ct1);
           });
     });
     } else {
@@ -932,7 +929,8 @@ void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
                              dev_mem_d_ax_ct0, dev_mem_d_ay_ct1,
                              dev_mem_d_sid_ct2, dev_mem_d_range_ct3,
                              dev_mem_d_cut_ct4, dev_mem_d_f_ct5,
-                             dev_mem_d_p_ct6, total_n, cut_num, *misc_ptr_ct1);
+                             dev_mem_d_p_ct6, total_n, cut_num, *misc_ptr_ct1,
+                             item_ct1);
                        });
     });
   }

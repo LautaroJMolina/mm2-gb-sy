@@ -1,11 +1,12 @@
 #include <sycl/sycl.hpp>
-#include <dpct/dpct.hpp>
 #include "syclcheck.cpp"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
 #include "plrange.dp.hpp"
+
+namespace sycl = acpp::sycl;
 
 #ifdef DEBUG_PRINT
 const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order(), sycl::property::queue::enable_profiling()};
@@ -44,8 +45,8 @@ inline int64_t range_binary_search(const int32_t* ax, const int32_t* rev, int64_
 */
 void range_selection_kernel_binary(const int32_t* ax, const int32_t* rev, size_t *start_idx_arr, size_t *read_end_idx_arr, 
     int32_t *range, size_t* cut, size_t* cut_start_idx, size_t total_n, size_t anchor_per_block,
-    int d_max_dist_x, int d_max_iter, int d_cut_check_anchors){
-    auto item_ct1 = sycl::ext::oneapi::this_work_item::get_nd_item<3>();
+    int d_max_dist_x, int d_max_iter, int d_cut_check_anchors, sycl::nd_item<3> item_ct1){
+    // auto item_ct1 = item;
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
 
@@ -91,8 +92,7 @@ void range_selection_kernel_binary(const int32_t* ax, const int32_t* rev, size_t
  */
 void range_selection_kernel_naive(const int32_t* ax, const int32_t* rev, size_t *start_idx_arr, size_t *read_end_idx_arr, 
     int32_t *range, size_t* cut, size_t* cut_start_idx, size_t total_n, range_kernel_config_t config,
-    int d_max_dist_x, int d_max_iter, int d_cut_check_anchors){
-    auto item_ct1 = sycl::ext::oneapi::this_work_item::get_nd_item<3>();
+    int d_max_dist_x, int d_max_iter, int d_cut_check_anchors,sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
 
@@ -101,8 +101,7 @@ void range_selection_kernel_naive(const int32_t* ax, const int32_t* rev, size_t 
     size_t end_idx = start_idx + config.anchor_per_block;
     end_idx = end_idx > read_end_idx ? read_end_idx : end_idx;
     assert(end_idx == (bid + 1 <
-                       sycl::ext::oneapi::this_work_item::get_nd_item<3>()
-                           .get_group_range(2))
+                       item_ct1.get_group_range(2))
                ? start_idx_arr[bid + 1]
                : total_n);
     // if(end_idx_ref != end_idx){
@@ -306,7 +305,7 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
                 dev_mem_d_read_end_idx_ct3, dev_mem_d_range_ct4,
                 dev_mem_d_cut_ct5, dev_mem_d_cut_start_idx_ct6, total_n,
                 tmp_anchors_per_block, *d_max_dist_x_ptr_ct1, *d_max_iter_ptr_ct1,
-                *d_cut_check_anchors_ptr_ct1);
+                *d_cut_check_anchors_ptr_ct1, item_ct1);
           });
     });
   }
@@ -361,7 +360,7 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
                 dev_mem_d_read_end_idx_ct3, dev_mem_d_range_ct4,
                 dev_mem_d_cut_ct5, dev_mem_d_cut_start_idx_ct6, total_n,
                 tmp_anchors_per_block, *d_max_dist_x_ptr_ct1, *d_max_iter_ptr_ct1,
-                *d_cut_check_anchors_ptr_ct1);
+                *d_cut_check_anchors_ptr_ct1, item_ct1);
           });
     });
   }

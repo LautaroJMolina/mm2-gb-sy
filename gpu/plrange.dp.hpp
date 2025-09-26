@@ -2,9 +2,10 @@
 #define _PLRANGE_CUH_
 
 #include <sycl/sycl.hpp>
-#include <dpct/dpct.hpp>
 #include "plmem.dp.hpp"
 #include <assert.h>
+
+namespace sycl = acpp::sycl;
 
 #ifdef __cplusplus
 extern "C" {

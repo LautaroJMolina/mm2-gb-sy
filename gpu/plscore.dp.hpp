@@ -2,9 +2,10 @@
 #define _PLSCORE_CUH_
 
 #include <sycl/sycl.hpp>
-#include <dpct/dpct.hpp>
 #include "../mmpriv.h"
 #include "plmem.dp.hpp"
+
+namespace sycl = acpp::sycl;
 
 #ifdef __cplusplus
 extern "C" {

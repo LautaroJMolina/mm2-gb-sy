@@ -2,9 +2,10 @@
 #define _PLMEM_CUH_
 
 #include <sycl/sycl.hpp>
-#include <dpct/dpct.hpp>
 #include "plchain.h"
 #include "plutils.h"
+
+namespace sycl = acpp::sycl;
 
 #ifndef MAX_MICRO_BATCH
 #define MAX_MICRO_BATCH 8

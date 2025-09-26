@@ -78,10 +78,10 @@ include gpu/gpu.mk
 
 # compile with icpx and gpu object files
 $(PROG):gpu main.o libminimap2.a
-		$(GPU_CC) $(CFLAGS) $(GPU_FLAGS) main.o $(OBJS_GPU) -o $@ -L. -lminimap2 $(LIBS)
+		$(GPU_CC) $(GPU_FLAGS) main.o $(OBJS_GPU) -o $@ -L. -lminimap2 $(LIBS)
 
 minimap2-lite:example.o libminimap2.a
-		$(GPU_CC) $(CFLAGS)  $(GPU_FLAGS) $< -o $@ -L. -lminimap2 $(LIBS)
+		$(GPU_CC) $(GPU_FLAGS) $< -o $@ -L. -lminimap2 $(LIBS)
 
 libminimap2.a:$(OBJS) $(CU_OBJS) $(CJSON_OBJ)
 		$(AR) -csru $@ $^

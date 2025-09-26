@@ -4,8 +4,9 @@
  */
 
 #include <sycl/sycl.hpp>
-#include <dpct/dpct.hpp>
 #include "planalyze.dp.hpp"
+
+using namespace acpp;
 
 #ifdef DEBUG_PRINT
 const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order(), sycl::property::queue::enable_profiling()};
