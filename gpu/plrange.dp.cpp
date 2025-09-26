@@ -334,8 +334,11 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
     limit. To get the device limit, query info::device::max_work_group_size.
     Adjust the work-group size if needed.
     */
+  
+  sycl::queue q_ct1(prop_list); 
+
   {
-    dpct::get_in_order_queue().submit([&](sycl::handler &cgh) {
+    q_ct1.submit([&](sycl::handler &cgh) {
       auto d_max_dist_x_ptr_ct1 = &d_vec[0];
       auto d_max_iter_ptr_ct1 = &d_vec[1];
       auto d_cut_check_anchors_ptr_ct1 = &d_vec[2];
@@ -364,7 +367,7 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
   }
 
   try {
-    dpct::get_current_device().queues_wait_and_throw();
+    q_ct1.wait_and_throw();
   } catch (const sycl::exception &e) {
     fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
     fflush(stderr);
