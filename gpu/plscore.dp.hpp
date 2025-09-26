@@ -5,8 +5,6 @@
 #include "../mmpriv.h"
 #include "plmem.dp.hpp"
 
-namespace sycl = acpp::sycl;
-
 #ifdef __cplusplus
 extern "C" {
 #endif

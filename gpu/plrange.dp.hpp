@@ -5,8 +5,6 @@
 #include "plmem.dp.hpp"
 #include <assert.h>
 
-namespace sycl = acpp::sycl;
-
 #ifdef __cplusplus
 extern "C" {
 #endif

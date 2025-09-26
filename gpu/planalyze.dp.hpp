@@ -12,8 +12,6 @@
 #include "plmem.dp.hpp"
 #include "plscore.dp.hpp"
 
-namespace sycl = acpp::sycl;
-
 #ifdef DEBUG_CHECK
 void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]);
 void planalyze_long_kernel(stream_ptr_t stream, float* throughput);

@@ -1,7 +1,4 @@
 #include <sycl/sycl.hpp>
-#include <sycl/sycl.hpp>
-
-namespace sycl = acpp::sycl;
 
 inline void sycl_check(sycl::queue q) {
   try {

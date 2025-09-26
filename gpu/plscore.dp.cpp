@@ -6,8 +6,6 @@
 #include <assert.h>
 #include "plscore.dp.hpp"
 
-namespace sycl = acpp::sycl;
-
 #ifdef DEBUG_PRINT
 const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order(), sycl::property::queue::enable_profiling()};
 #else

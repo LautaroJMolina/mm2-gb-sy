@@ -5,8 +5,6 @@
 #include "plchain.h"
 #include "plutils.h"
 
-namespace sycl = acpp::sycl;
-
 #ifndef MAX_MICRO_BATCH
 #define MAX_MICRO_BATCH 8
 #endif // MAX_MICRO_BATCH
