@@ -341,13 +341,13 @@ void score_generation_short(
     // Atomic refs
     sycl::atomic_ref<unsigned long long, sycl::memory_order::relaxed,
         sycl::memory_scope::device, sycl::access::address_space::generic_space> \
-        atomic_total_n_long(*reinterpret_cast<unsigned long long*>(total_n_long));
+        atomic_total_n_long(reinterpret_cast<unsigned long long&>(total_n_long));
     sycl::atomic_ref<unsigned long long, sycl::memory_order::relaxed,
         sycl::memory_scope::device, sycl::access::address_space::generic_space> \
-        atomic_mid_seg_count(*reinterpret_cast<unsigned long long*>(mid_seg_count));
+        atomic_mid_seg_count(reinterpret_cast<unsigned long long&>(mid_seg_count));
     sycl::atomic_ref<unsigned long long, sycl::memory_order::relaxed,
         sycl::memory_scope::device, sycl::access::address_space::generic_space> \
-        atomic_long_seg_count(*reinterpret_cast<unsigned long long*>(long_seg_count));
+        atomic_long_seg_count(reinterpret_cast<unsigned long long&>(long_seg_count));
 
     for (int segid = bid; segid < seg_count;
          segid += item_ct1.get_group_range(2)) {
@@ -379,11 +379,11 @@ void score_generation_short(
                     atomic_total_n_long.fetch_add(ref_tmp2);
                     long_seg_start_idx = SIZE_MAX;
                     // fallback to mid kernel
-                    int mid_seg_idx = atomic_mid_seg_count.fetch_add(1);
+                    int mid_seg_idx = atomic_mid_seg_count.fetch_add(1ULL);
                     mid_seg[mid_seg_idx].start_idx = start_idx;
                     mid_seg[mid_seg_idx].end_idx = end_idx;
                 } else {
-                    int long_seg_idx = atomic_long_seg_count.fetch_add(1);
+                    int long_seg_idx = atomic_long_seg_count.fetch_add(1ULL);
                     long_seg[long_seg_idx].start_idx = long_seg_start_idx;
                     long_seg[long_seg_idx].end_idx = long_seg_start_idx + (end_idx - start_idx);
                     long_seg_og[long_seg_idx].start_idx = start_idx;
@@ -412,7 +412,7 @@ void score_generation_short(
             continue;
         } else if (end_segid > segid + mid_seg_cutoff) {
             if (tid == 0) {
-                int mid_seg_idx = atomic_mid_seg_count.fetch_add(1);
+                int mid_seg_idx = atomic_mid_seg_count.fetch_add(1ULL);
                 mid_seg[mid_seg_idx].start_idx = start_idx;
                 mid_seg[mid_seg_idx].end_idx = end_idx;
             }
@@ -510,7 +510,7 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
                                 seg.end_idx, f, p, misc, item_ct1);
         seg_count++;
         if (tid == 0) segid =
-            atomic_curr_long_segid.fetch_add(1);
+            atomic_curr_long_segid.fetch_add(1U);
         /*
         DPCT1118:6: SYCL group functions and algorithms must be encountered in
         converged control flow. You may need to adjust the code.
