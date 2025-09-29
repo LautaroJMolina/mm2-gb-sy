@@ -270,8 +270,8 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
                                    sycl::event *start_event_short) {
     size_t total_n = dev_mem->total_n, cut_num = dev_mem->num_cut;
     int griddim = dev_mem->griddim;
-    sycl::range<3> DimBlock(range_kernel_config.blockdim, 1, 1);
-    sycl::range<3> DimGrid(griddim, 1, 1);
+    sycl::range<3> DimBlock(1, 1, range_kernel_config.blockdim);
+    sycl::range<3> DimGrid(1, 1, griddim);
 
     // Run kernel
     /*
@@ -316,8 +316,8 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
 void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
     size_t total_n = dev_mem->total_n, cut_num = dev_mem->num_cut;
     int griddim = dev_mem->griddim;
-    sycl::range<3> DimBlock(range_kernel_config.blockdim, 1, 1);
-    sycl::range<3> DimGrid(griddim, 1, 1);
+    sycl::range<3> DimBlock(1, 1, range_kernel_config.blockdim);
+    sycl::range<3> DimGrid(1, 1, griddim);
 
     plrange_upload_misc(misc);
 
