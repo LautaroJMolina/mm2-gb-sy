@@ -274,7 +274,7 @@ int plchain_post_gpu_helper(streamSetup_t stream_setup, int stream_id,
 #ifdef DEBUG_PRINT
     uint64_t start_time_short = stream_setup.streams[stream_id].short_kernel_start_event[uid]->get_profiling_info<sycl::info::event_profiling::command_start>();
     uint64_t end_time_short = stream_setup.streams[stream_id].short_kernel_stop_event[uid]->get_profiling_info<sycl::info::event_profiling::command_end>();
-    kernel_runtime_ms[uid] = (end_time_short - start_time_short) / 1000000;
+    kernel_runtime_ms[uid] = (end_time_short - start_time_short) / 1000000.0f;
     kernel_throughput_anchors[uid] =
         (stream_setup.streams[stream_id].host_mems[uid].total_n -
          total_n_long_segs) /
