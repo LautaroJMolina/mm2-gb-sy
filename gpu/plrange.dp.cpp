@@ -43,7 +43,7 @@ inline int64_t range_binary_search(const int32_t* ax, const int32_t* rev, int64_
 */
 void range_selection_kernel_binary(const int32_t* ax, const int32_t* rev, size_t *start_idx_arr, size_t *read_end_idx_arr, 
     int32_t *range, size_t* cut, size_t* cut_start_idx, size_t total_n, size_t anchor_per_block,
-    int d_max_dist_x, int d_max_iter, int d_cut_check_anchors, sycl::nd_item<3> item_ct1){
+    const int d_max_dist_x, const int d_max_iter, const int d_cut_check_anchors, sycl::nd_item<3> item_ct1){
     // auto item_ct1 = item;
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
@@ -281,9 +281,9 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
     */
   {
     *start_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      auto d_max_dist_x_ptr_ct1 = &d_vec[0];
-      auto d_max_iter_ptr_ct1 = &d_vec[1];
-      auto d_cut_check_anchors_ptr_ct1 = &d_vec[2];
+      const int *d_max_dist_x_ptr_ct1 = &d_vec[0];
+      const int *d_max_iter_ptr_ct1 = &d_vec[1];
+      const int *d_cut_check_anchors_ptr_ct1 = &d_vec[2];
 
       const int32_t *dev_mem_d_ax_ct0 = dev_mem->d_ax;
       const int32_t *dev_mem_d_xrev_ct1 = dev_mem->d_xrev;
@@ -336,9 +336,9 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
 
   {
     q_ct1.submit([&](sycl::handler &cgh) {
-      auto d_max_dist_x_ptr_ct1 = &d_vec[0];
-      auto d_max_iter_ptr_ct1 = &d_vec[1];
-      auto d_cut_check_anchors_ptr_ct1 = &d_vec[2];
+      const int *d_max_dist_x_ptr_ct1 = &d_vec[0];
+      const int *d_max_iter_ptr_ct1 = &d_vec[1];
+      const int *d_cut_check_anchors_ptr_ct1 = &d_vec[2];
 
       const int32_t *dev_mem_d_ax_ct0 = dev_mem->d_ax;
       const int32_t *dev_mem_d_xrev_ct1 = dev_mem->d_xrev;

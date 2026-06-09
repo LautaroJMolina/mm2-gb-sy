@@ -328,11 +328,10 @@ void score_generation_short(
                                 size_t* total_n_long, size_t buffer_size_long 
                                 , seg_t* long_seg, seg_t* long_seg_og, unsigned int *long_seg_count
                                 ,seg_t *mid_seg, unsigned int *mid_seg_count,
-                                Misc misc, int long_seg_cutoff,
-                                int mid_seg_cutoff,
+                                const Misc misc, const int long_seg_cutoff,
+                                const int mid_seg_cutoff,
                                 size_t &long_seg_start_idx_shared,
                                 sycl::nd_item<3> item_ct1){
-    // auto item_ct1 = item;
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
 
@@ -421,7 +420,7 @@ template <size_t mid_block_size>
 
 void score_generation_mid(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
-                                int32_t* f, uint16_t* p, Misc misc, sycl::nd_item<3> item_ct1){
+                                int32_t* f, uint16_t* p, const Misc misc, sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
 
@@ -463,7 +462,7 @@ template <size_t long_block_size>
 void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
                                 int32_t* f, uint16_t* p, unsigned int* map,
-                                Misc misc, unsigned &curr_long_segid,
+                                const Misc misc, unsigned &curr_long_segid,
                                 unsigned int &segid,sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
@@ -520,7 +519,7 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
 void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                         size_t *seg_start_arr, 
                         int32_t* f, uint16_t* p, size_t total_n, size_t seg_count,
-                        Misc misc,sycl::nd_item<3> item_ct1) {
+                        const Misc misc,sycl::nd_item<3> item_ct1) {
 
     // NOTE: each block deal with one batch 
     // the number of threads in a block is fixed, so we need to calculate iter
@@ -606,9 +605,9 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     if (score_kernel_config.short_blockdim == 32 ){
 
     (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc;
-      auto long_seg_cutoff_ptr_ct1 = &seg_cutoff[0];
-      auto mid_seg_cutoff_ptr_ct1 = &seg_cutoff[1];
+      const Misc *misc_ptr_ct1 = misc;
+      const int *long_seg_cutoff_ptr_ct1 = &seg_cutoff[0];
+      const int *mid_seg_cutoff_ptr_ct1 = &seg_cutoff[1];
 
       sycl::local_accessor<size_t, 0> long_seg_start_idx_shared_acc_ct1(cgh);
 
@@ -651,9 +650,9 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     } else if (score_kernel_config.short_blockdim == 64) {
 
     (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc;
-      auto long_seg_cutoff_ptr_ct1 = &seg_cutoff[0];
-      auto mid_seg_cutoff_ptr_ct1 = &seg_cutoff[1];
+      const Misc *misc_ptr_ct1 = misc;
+      const int *long_seg_cutoff_ptr_ct1 = &seg_cutoff[0];
+      const int *mid_seg_cutoff_ptr_ct1 = &seg_cutoff[1];
 
       sycl::local_accessor<size_t, 0> long_seg_start_idx_shared_acc_ct1(cgh);
 
@@ -706,7 +705,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     if (score_kernel_config.mid_blockdim == 128){
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc;
+      const Misc *misc_ptr_ct1 = misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -730,7 +729,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     } else if (score_kernel_config.mid_blockdim == 256){
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc;
+      const Misc *misc_ptr_ct1 = misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -759,7 +758,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
         */
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc;
+      const Misc *misc_ptr_ct1 = misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -788,7 +787,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
         */
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc;
+      const Misc *misc_ptr_ct1 = misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -845,8 +844,8 @@ void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
     */
 
     (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc;
-      auto curr_long_segid_ptr_ct1 = curr_long_segid;
+      const Misc *misc_ptr_ct1 = misc;
+      unsigned *curr_long_segid_ptr_ct1 = curr_long_segid;
 
       sycl::local_accessor<unsigned int, 0> segid_acc_ct1(cgh);
 
@@ -905,7 +904,7 @@ void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
   {
 
     (*stream)->submit([&](sycl::handler &cgh) {
-      auto misc_ptr_ct1 = misc;
+      const Misc *misc_ptr_ct1 = misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
