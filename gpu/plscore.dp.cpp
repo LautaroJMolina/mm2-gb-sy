@@ -338,16 +338,9 @@ void score_generation_short(
 
     size_t long_seg_start_idx;
 
-    // Atomic refs
-    sycl::atomic_ref<unsigned long long, sycl::memory_order::relaxed,
-        sycl::memory_scope::device, sycl::access::address_space::generic_space> \
-        atomic_total_n_long(reinterpret_cast<unsigned long long&>(total_n_long));
-    sycl::atomic_ref<unsigned long long, sycl::memory_order::relaxed,
-        sycl::memory_scope::device, sycl::access::address_space::generic_space> \
-        atomic_mid_seg_count(reinterpret_cast<unsigned long long&>(mid_seg_count));
-    sycl::atomic_ref<unsigned long long, sycl::memory_order::relaxed,
-        sycl::memory_scope::device, sycl::access::address_space::generic_space> \
-        atomic_long_seg_count(reinterpret_cast<unsigned long long&>(long_seg_count));
+    sycl::atomic_ref<size_t, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::generic_space> atomic_total_n_long(*total_n_long);
+    sycl::atomic_ref<unsigned int, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::generic_space> atomic_mid_seg_count(*mid_seg_count);
+    sycl::atomic_ref<unsigned int, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::generic_space> atomic_long_seg_count(*long_seg_count);
 
     for (int segid = bid; segid < seg_count;
          segid += item_ct1.get_group_range(2)) {
@@ -367,23 +360,23 @@ void score_generation_short(
             ++end_segid;
         }
 
-        unsigned long long ref_tmp1 = static_cast<unsigned long long>(end_idx - start_idx);
+        size_t ref_tmp1 = end_idx - start_idx;
         
         if (end_segid > segid + long_seg_cutoff) {
             if (tid == 0) {
                 /* Allocate space in long seg buffer */
                 long_seg_start_idx = atomic_total_n_long.fetch_add(ref_tmp1);
                 if (long_seg_start_idx + (end_idx - start_idx) >= buffer_size_long){ // long segement buffer is full
-                    unsigned long long ref_tmp2 = static_cast<unsigned long long>(start_idx - end_idx);
+                    size_t ref_tmp2 = start_idx - end_idx;
                 /* rollback total_n_long */
                     atomic_total_n_long.fetch_add(ref_tmp2);
                     long_seg_start_idx = SIZE_MAX;
                     // fallback to mid kernel
-                    int mid_seg_idx = atomic_mid_seg_count.fetch_add(1ULL);
+                    int mid_seg_idx = atomic_mid_seg_count.fetch_add(1U);
                     mid_seg[mid_seg_idx].start_idx = start_idx;
                     mid_seg[mid_seg_idx].end_idx = end_idx;
                 } else {
-                    int long_seg_idx = atomic_long_seg_count.fetch_add(1ULL);
+                    int long_seg_idx = atomic_long_seg_count.fetch_add(1U);
                     long_seg[long_seg_idx].start_idx = long_seg_start_idx;
                     long_seg[long_seg_idx].end_idx = long_seg_start_idx + (end_idx - start_idx);
                     long_seg_og[long_seg_idx].start_idx = start_idx;
@@ -412,7 +405,7 @@ void score_generation_short(
             continue;
         } else if (end_segid > segid + mid_seg_cutoff) {
             if (tid == 0) {
-                int mid_seg_idx = atomic_mid_seg_count.fetch_add(1ULL);
+                int mid_seg_idx = atomic_mid_seg_count.fetch_add(1U);
                 mid_seg[mid_seg_idx].start_idx = start_idx;
                 mid_seg[mid_seg_idx].end_idx = end_idx;
             }
@@ -589,6 +582,7 @@ void plscore_free_misc() try {
 
   sycl::free(misc, q_ct1);
   sycl::free(seg_cutoff, q_ct1);
+  sycl::free(curr_long_segid, q_ct1);
   q_ct1.wait_and_throw();
 } catch (const sycl::exception &e) {
   fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
