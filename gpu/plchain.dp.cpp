@@ -16,7 +16,7 @@ const sycl::property_list prop_list = sycl::property_list{sycl::property::queue:
 #include "plmem.dp.hpp"
 #include "plrange.dp.hpp"
 #include "plscore.dp.hpp"
-#include "syclcheck.cpp"
+#include "syclcheck.hpp"
 #include <algorithm>
 #include <utility>
 
@@ -27,8 +27,7 @@ const sycl::property_list prop_list = sycl::property_list{sycl::property::queue:
 
 // utils functions
 struct {
-  bool operator()(std::pair<size_t, unsigned> a,
-                  std::pair<size_t, unsigned> b) const {
+  bool operator()(std::pair<size_t, unsigned> a, std::pair<size_t, unsigned> b) const {
     return a.first > b.first;
   }
 } comp;
@@ -102,15 +101,11 @@ static int64_t mg_chain_bk_end(int32_t max_drop, const mm128_t *z,
   return max_i;
 }
 
-void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc,
-                          void *km) {
+void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc, void *km) {
   int max_drop = misc.bw;
-  if (misc.max_dist_x < misc.bw)
-    misc.max_dist_x = misc.bw;
-  if (misc.max_dist_y < misc.bw && !misc.is_cdna)
-    misc.max_dist_y = misc.bw;
-  if (misc.is_cdna)
-    max_drop = INT32_MAX;
+  if (misc.max_dist_x < misc.bw) misc.max_dist_x = misc.bw;
+  if (misc.max_dist_y < misc.bw && !misc.is_cdna) misc.max_dist_y = misc.bw;
+  if (misc.is_cdna) max_drop = INT32_MAX;
 
   size_t n_read = host_mem->size;
 
@@ -124,8 +119,7 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc,
 #if defined(DEBUG_VERBOSE) && 0
     debug_print_score(p, f, reads[i].n);
 #endif
-// Check score w.r.t to input (MAKE SURE INPUT SCORE EXISTS: search for SCORE
-// CHECK)
+// Check score w.r.t to input (MAKE SURE INPUT SCORE EXISTS: search for SCORE CHECK)
 #if defined(DEBUG_CHECK) && 0
     debug_check_score(p, f, reads[i].p, reads[i].f, reads[i].n);
 #endif
@@ -136,8 +130,7 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc,
     KMALLOC(km, v, reads[i].n);
     KCALLOC(km, t, reads[i].n);
     int32_t n_u, n_v;
-    u = mg_chain_backtrack(km, reads[i].n, f, p, v, t, misc.min_cnt,
-                           misc.min_score, max_drop, &n_u, &n_v);
+    u = mg_chain_backtrack(km, reads[i].n, f, p, v, t, misc.min_cnt, misc.min_score, max_drop, &n_u, &n_v);
     reads[i].u = u;
     reads[i].n_u = n_u;
     kfree(km, p);
@@ -173,8 +166,7 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc,
  * RETURN
  *  true if need to cleanup current stream
  */
-int plchain_schedule_stream(const streamSetup_t stream_setup,
-                            const int batchid) try {
+int plchain_schedule_stream(const streamSetup_t stream_setup, const int batchid) {
   /* Haven't fill all the streams*/
   if (batchid < stream_setup.num_stream) {
     return batchid;
@@ -190,17 +182,11 @@ int plchain_schedule_stream(const streamSetup_t stream_setup,
         // FIXME: unnecessary recreate?
         delete stream_setup.streams[t].stopevent;
         stream_setup.streams[t].stopevent = new sycl::event();
-        // sycl_check();
         break;
       }
-      // sycl_check();
     }
   }
   return streamid;
-} catch (const sycl::exception &e) {
-  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
-  fflush(stderr);
-  exit(EXIT_FAILURE);
 }
 
 // Global variable for debug prints. Throughput, runtime & mem usage
@@ -334,7 +320,7 @@ int plchain_post_gpu_helper(streamSetup_t stream_setup, int stream_id,
 void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc,
                              streamSetup_t stream_setup, int thread_id,
                              void *km) {
-  sycl::queue q(prop_list);
+  sycl::queue q(sycl_async_handler, prop_list);
   sycl::queue &q_ct1 = q; 
   chain_read_t *reads = *reads_;
   *reads_ = NULL;
@@ -378,7 +364,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc,
   stream_setup.streams[stream_id].cudastream->memset(
       stream_setup.streams[stream_id].dev_mem.d_total_n_long, 0,
       sizeof(size_t));
-  sycl_check(*(stream_setup.streams[stream_id].cudastream));
+  stream_setup.streams[stream_id].cudastream->throw_asynchronous();
   stream_setup.streams[stream_id].long_mem.total_long_segs_num[0] = 0;
   stream_setup.streams[stream_id].long_mem.total_long_segs_n[0] = 0;
   for (int uid = 0; uid < score_kernel_config.micro_batch; uid++) {
@@ -516,7 +502,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc,
 
   plmem_async_d2h_long_memcpy(&stream_setup.streams[stream_id]);
   stream_setup.streams[stream_id].busy = true;
-  sycl_check(*(stream_setup.streams[stream_id].cudastream));
+  stream_setup.streams[stream_id].cudastream->throw_asynchronous();
 }
 
 #ifdef __cplusplus

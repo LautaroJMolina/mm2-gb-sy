@@ -1,5 +1,5 @@
 #include <sycl/sycl.hpp>
-#include "syclcheck.cpp"
+#include "syclcheck.hpp"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -22,8 +22,7 @@ CUDA/HIP kernel for range selection using forward chaining
 
 int *d_vec;
 
-inline int64_t range_binary_search(const int32_t* ax, const int32_t* rev, int64_t i, int64_t st_end,
-                                   int d_max_dist_x){
+inline int64_t range_binary_search(const int32_t* ax, const int32_t* rev, int64_t i, int64_t st_end, int d_max_dist_x){
     int64_t st_high = st_end, st_low=i;
     while (st_high != st_low) {
         int64_t mid = (st_high + st_low -1) / 2+1;
@@ -237,8 +236,8 @@ extern "C" {
 /* host functions begin */
 range_kernel_config_t range_kernel_config;
 
-void plrange_upload_misc(Misc misc) try {
-  sycl::queue q(prop_list);
+void plrange_upload_misc(Misc misc) {
+  sycl::queue q(sycl_async_handler, prop_list);
   sycl::queue &q_ct1 = q; 
 
   d_vec = sycl::malloc_device<int>(3, q_ct1);
@@ -247,22 +246,14 @@ void plrange_upload_misc(Misc misc) try {
   q_ct1.memcpy(&d_vec[1], &misc.max_iter, sizeof(int));
   q_ct1.memcpy(&d_vec[2], &range_kernel_config.cut_check_anchors, sizeof(int));
   q_ct1.wait_and_throw();
-} catch (const sycl::exception &e) {
-  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
-  fflush(stderr);
-  exit(EXIT_FAILURE);
 }
 
-void plrange_free_misc() try {
-  sycl::queue q(prop_list);
+void plrange_free_misc() {
+  sycl::queue q(sycl_async_handler, prop_list);
   sycl::queue &q_ct1 = q; 
 
   sycl::free(d_vec, q_ct1);
   q_ct1.wait_and_throw();
-} catch (const sycl::exception &e) {
-  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
-  fflush(stderr);
-  exit(EXIT_FAILURE);
 }
 
 void plrange_async_range_selection(deviceMemPtr *dev_mem,
@@ -323,7 +314,7 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
 
     // Run kernel
 #ifdef DEBUG_PRINT
-        fprintf(stderr, "[Info] %s (%s:%d): Grim Dim: %zu Cut: %zu Anchors: %zu\n", __func__, __FILE__, __LINE__, DimGrid[2],
+        fprintf(stderr, "[Info] %s (%s:%d): Grid Dim: %zu Cut: %zu Anchors: %zu\n", __func__, __FILE__, __LINE__, DimGrid[2],
                 cut_num, total_n);
 #endif
     /*
@@ -332,7 +323,7 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
     Adjust the work-group size if needed.
     */
   
-  sycl::queue q_ct1(prop_list); 
+  sycl::queue q_ct1(sycl_async_handler, prop_list); 
 
   {
     q_ct1.submit([&](sycl::handler &cgh) {
@@ -362,14 +353,7 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
           });
     });
   }
-
-  try {
-    q_ct1.wait_and_throw();
-  } catch (const sycl::exception &e) {
-    fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
-    fflush(stderr);
-    exit(EXIT_FAILURE);
-  }
+  q_ct1.wait_and_throw();
 
 #ifdef DEBUG_PRINT
     fprintf(stderr, "[Info] %s: range calculation success\n", __func__);

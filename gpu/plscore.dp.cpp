@@ -1,5 +1,5 @@
 #include <sycl/sycl.hpp>
-#include "syclcheck.cpp"
+#include "syclcheck.hpp"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -124,13 +124,11 @@ inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* ancho
     const Misc blk_misc = misc;
     int tid = item_ct1.get_local_id(2);
     // init f and p
-    for (size_t i = start_idx + tid; i < end_idx;
-         i += item_ct1.get_local_range(2)) {
+    for (size_t i = start_idx + tid; i < end_idx; i += item_ct1.get_local_range(2)) {
         f[i] = MM_QSPAN;
         p[i] = 0;
     }
-        sycl::group_barrier(
-            item_ct1.get_sub_group()); // NOTE: single warp, no need to sync
+    sycl::group_barrier(item_ct1.get_sub_group());
     for (size_t i=start_idx; i < end_idx; i++) {
         int32_t range_i = range[i];
         for (int32_t j = tid; j < range_i; j += item_ct1.get_local_range(2)) {
@@ -151,8 +149,7 @@ inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* ancho
 
             }
         }
-        sycl::group_barrier(
-            item_ct1.get_sub_group()); // NOTE: single warp, no need to sync
+        sycl::group_barrier(item_ct1.get_sub_group());
     }
     
 }
@@ -357,7 +354,7 @@ void score_generation_short(
             }
             ++end_segid;
         }
-        
+
         if (end_segid > segid + long_seg_cutoff) {
             if (tid == 0) {
                 /* Allocate space in long seg buffer */
@@ -550,8 +547,8 @@ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid,
 /* host functions begin */
 score_kernel_config_t score_kernel_config;
 
-void plscore_upload_misc(Misc input_misc) try {
-  sycl::queue q(prop_list);
+void plscore_upload_misc(Misc input_misc) {
+  sycl::queue q(sycl_async_handler, prop_list);
   sycl::queue &q_ct1 = q;
   
   misc = sycl::malloc_device<Misc>(1, q_ct1);
@@ -562,24 +559,16 @@ void plscore_upload_misc(Misc input_misc) try {
   q_ct1.memcpy(&seg_cutoff[0], &score_kernel_config.long_seg_cutoff, sizeof(int));
   q_ct1.memcpy(&seg_cutoff[1], &score_kernel_config.mid_seg_cutoff, sizeof(int));
   q_ct1.wait_and_throw();
-} catch (const sycl::exception &e) {
-  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
-  fflush(stderr);
-  exit(EXIT_FAILURE);
 }
 
-void plscore_free_misc() try {
-  sycl::queue q(prop_list);
+void plscore_free_misc() {
+  sycl::queue q(sycl_async_handler, prop_list);
   sycl::queue &q_ct1 = q;
 
   sycl::free(misc, q_ct1);
   sycl::free(seg_cutoff, q_ct1);
   sycl::free(curr_long_segid, q_ct1);
   q_ct1.wait_and_throw();
-} catch (const sycl::exception &e) {
-  fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());
-  fflush(stderr);
-  exit(EXIT_FAILURE);
 }
 
 void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
