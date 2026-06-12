@@ -185,7 +185,7 @@ int plchain_schedule_stream(const streamSetup_t stream_setup,
   while (streamid == -1) {
     for (int t = 0; t < stream_setup.num_stream; t++) {
       auto status = stream_setup.streams[t].stopevent->get_info<sycl::info::event::command_execution_status>();
-      if (!(status == sycl::info::event_command_status::complete)) {
+      if (status == sycl::info::event_command_status::complete) {
         streamid = t;
         // FIXME: unnecessary recreate?
         delete stream_setup.streams[t].stopevent;

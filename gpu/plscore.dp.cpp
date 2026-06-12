@@ -36,7 +36,7 @@ unsigned *curr_long_segid;
 
 static inline float cuda_mg_log2(int32_t x) // NB: this doesn't work when x<2
 {
-    return 31 - sycl::clz((int)x);
+    return 31 - sycl::clz(x);
 }
 
 int32_t original_comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t aj_x, const int32_t aj_y,
@@ -89,7 +89,7 @@ inline int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t a
     These two calls do not provide exactly the same functionality. Check the
     potential precision and/or performance issues for the generated code.
     */
-    const int32_t dd = sycl::abs(dr) - sycl::abs(dq);
+    const int32_t dd = sycl::abs(dr - dq);
 
     if (dq <= 0 || dq > max_dist_x ||
         (is_same_sid && (dr == 0 || 
@@ -330,7 +330,6 @@ void score_generation_short(
                                 ,seg_t *mid_seg, unsigned int *mid_seg_count,
                                 const Misc misc, const int long_seg_cutoff,
                                 const int mid_seg_cutoff,
-                                size_t &long_seg_start_idx_shared,
                                 sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
@@ -358,17 +357,14 @@ void score_generation_short(
             }
             ++end_segid;
         }
-
-        size_t ref_tmp1 = end_idx - start_idx;
         
         if (end_segid > segid + long_seg_cutoff) {
             if (tid == 0) {
                 /* Allocate space in long seg buffer */
-                long_seg_start_idx = atomic_total_n_long.fetch_add(ref_tmp1);
+                long_seg_start_idx = atomic_total_n_long.fetch_add(end_idx - start_idx);
                 if (long_seg_start_idx + (end_idx - start_idx) >= buffer_size_long){ // long segement buffer is full
-                    size_t ref_tmp2 = start_idx - end_idx;
                 /* rollback total_n_long */
-                    atomic_total_n_long.fetch_add(ref_tmp2);
+                    atomic_total_n_long.fetch_sub(end_idx - start_idx);
                     long_seg_start_idx = SIZE_MAX;
                     // fallback to mid kernel
                     int mid_seg_idx = atomic_mid_seg_count.fetch_add(1U);
@@ -388,10 +384,7 @@ void score_generation_short(
                 }
             }
             // broadcast long_seg_start_idx to all scalar registers
-            if (tid == 0) long_seg_start_idx_shared = long_seg_start_idx;
-            sycl::group_barrier(item_ct1.get_sub_group());
-            long_seg_start_idx = long_seg_start_idx_shared;
-            sycl::group_barrier(item_ct1.get_sub_group());
+            long_seg_start_idx = sycl::group_broadcast(item_ct1.get_sub_group(), long_seg_start_idx, 0);
             if (long_seg_start_idx == SIZE_MAX)
                 continue;  // failed to allocate long_seg buffer
             for (uint64_t idx = tid; idx < end_idx - start_idx;
@@ -609,8 +602,6 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
       const int *long_seg_cutoff_ptr_ct1 = &seg_cutoff[0];
       const int *mid_seg_cutoff_ptr_ct1 = &seg_cutoff[1];
 
-      sycl::local_accessor<size_t, 0> long_seg_start_idx_shared_acc_ct1(cgh);
-
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
       auto dev_mem_d_sid_ct2 = dev_mem->d_sid;
@@ -643,8 +634,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 dev_mem_d_long_seg_og_ct16, dev_mem_d_long_seg_count_ct17,
                 dev_mem_d_mid_seg_ct18, dev_mem_d_mid_seg_count_ct19,
                 *misc_ptr_ct1, *long_seg_cutoff_ptr_ct1,
-                *mid_seg_cutoff_ptr_ct1, long_seg_start_idx_shared_acc_ct1,
-                item_ct1);
+                *mid_seg_cutoff_ptr_ct1, item_ct1);
           });
     });
     } else if (score_kernel_config.short_blockdim == 64) {
@@ -653,8 +643,6 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
       const Misc *misc_ptr_ct1 = misc;
       const int *long_seg_cutoff_ptr_ct1 = &seg_cutoff[0];
       const int *mid_seg_cutoff_ptr_ct1 = &seg_cutoff[1];
-
-      sycl::local_accessor<size_t, 0> long_seg_start_idx_shared_acc_ct1(cgh);
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -688,8 +676,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 dev_mem_d_long_seg_og_ct16, dev_mem_d_long_seg_count_ct17,
                 dev_mem_d_mid_seg_ct18, dev_mem_d_mid_seg_count_ct19,
                 *misc_ptr_ct1, *long_seg_cutoff_ptr_ct1,
-                *mid_seg_cutoff_ptr_ct1, long_seg_start_idx_shared_acc_ct1,
-                item_ct1);
+                *mid_seg_cutoff_ptr_ct1, item_ct1);
           });
     });
     } else {
