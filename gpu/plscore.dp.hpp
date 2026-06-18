@@ -19,7 +19,8 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                                         sycl::queue **stream,
                                         sycl::event *stop_event_short);
 void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
-                                   sycl::queue **stream);
+                                   sycl::queue **stream,
+                                   sycl::event **event);
 
 extern score_kernel_config_t score_kernel_config;
 

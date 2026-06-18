@@ -795,8 +795,6 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
   for (int i = 0; i < num_stream; i++) {
     stream_setup.streams[i].busy = false;
     stream_setup.streams[i].cudastream = new sycl::queue(sycl_async_handler, prop_list);
-    stream_setup.streams[i].stopevent = new sycl::event();
-    stream_setup.streams[i].startevent = new sycl::event();
     stream_setup.streams[i].long_kernel_event = new sycl::event();
 
     stream_setup.streams[i].cudastream->throw_asynchronous(); 
@@ -851,8 +849,6 @@ void plmem_stream_cleanup() {
   for (int i = 0; i < stream_setup.num_stream; i++) {
     try {
       delete stream_setup.streams[i].cudastream;
-      delete stream_setup.streams[i].stopevent;
-      delete stream_setup.streams[i].startevent;
       delete stream_setup.streams[i].long_kernel_event;
     } catch (const sycl::exception &e) {
       fprintf(stderr, "Error in %s:%i %s(): %s.\n", __FILE__, __LINE__, __func__, e.what());

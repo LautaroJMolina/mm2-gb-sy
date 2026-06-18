@@ -103,7 +103,7 @@ typedef struct stream_ptr_t{
     longMemPtr long_mem;
     deviceMemPtr dev_mem;
     sycl::queue *cudastream;
-    sycl::event *stopevent, *startevent, *long_kernel_event;
+    sycl::event *long_kernel_event;
     sycl::event *short_kernel_start_event[MAX_MICRO_BATCH];
     sycl::event *short_kernel_stop_event[MAX_MICRO_BATCH];
     bool busy = false;

@@ -801,7 +801,8 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
 }
 
 void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
-                                   sycl::queue **stream) {
+                                   sycl::queue **stream,
+                                   sycl::event **event) {
     size_t total_n = dev_mem->total_n;
     size_t cut_num = dev_mem->num_cut;
     size_t buffer_size_long = dev_mem->buffer_size_long;
@@ -819,7 +820,7 @@ void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
     Adjust the work-group size if needed.
     */
 
-    (*stream)->submit([&](sycl::handler &cgh) {
+    (**event) = (*stream)->submit([&](sycl::handler &cgh) {
       const Misc *misc_ptr_ct1 = misc;
       unsigned *curr_long_segid_ptr_ct1 = curr_long_segid;
 

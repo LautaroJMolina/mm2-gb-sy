@@ -176,12 +176,12 @@ int plchain_schedule_stream(const streamSetup_t stream_setup, const int batchid)
   int streamid = -1;
   while (streamid == -1) {
     for (int t = 0; t < stream_setup.num_stream; t++) {
-      auto status = stream_setup.streams[t].stopevent->get_info<sycl::info::event::command_execution_status>();
+      auto status = stream_setup.streams[t].long_kernel_event->get_info<sycl::info::event::command_execution_status>();
       if (status == sycl::info::event_command_status::complete) {
         streamid = t;
         // FIXME: unnecessary recreate?
-        delete stream_setup.streams[t].stopevent;
-        stream_setup.streams[t].stopevent = new sycl::event();
+        delete stream_setup.streams[t].long_kernel_event;
+        stream_setup.streams[t].long_kernel_event = new sycl::event();
         break;
       }
     }
@@ -216,7 +216,7 @@ int plchain_post_gpu_helper(streamSetup_t stream_setup, int stream_id,
   float kernel_runtime_ms[MAX_MICRO_BATCH + 1] = {0};
   float kernel_throughput_anchors[MAX_MICRO_BATCH + 1] = {0};
   uint64_t start_time_long = stream_setup.streams[stream_id].long_kernel_event->get_profiling_info<sycl::info::event_profiling::command_start>();
-  uint64_t end_time_long = stream_setup.streams[stream_id].stopevent->get_profiling_info<sycl::info::event_profiling::command_end>();
+  uint64_t end_time_long = stream_setup.streams[stream_id].long_kernel_event->get_profiling_info<sycl::info::event_profiling::command_end>();
   kernel_runtime_ms[score_kernel_config.micro_batch] = (end_time_long - start_time_long) / 1000000.0f;
   kernel_throughput_anchors[score_kernel_config.micro_batch] =
       *stream_setup.streams[stream_id].long_mem.total_long_segs_n /
@@ -342,8 +342,6 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc,
     kernel_throughput[uid] = 0;
   }
 #endif // DEBUG_PRINT
-
-  *(stream_setup.streams[stream_id].startevent) = stream_setup.streams[stream_id].cudastream->single_task([=]()-> void{});
 
   size_t total_n = 0;
   for (int i = 0; i < n_read; i++) {
@@ -493,12 +491,9 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc,
       .wait();
   free(map);
 
-  *(stream_setup.streams[stream_id].long_kernel_event) = stream_setup.streams[stream_id].cudastream->single_task([=]()-> void{});
-
   plscore_async_long_forward_dp(&stream_setup.streams[stream_id].dev_mem,
-                                &stream_setup.streams[stream_id].cudastream);
-
-  *(stream_setup.streams[stream_id].stopevent) = stream_setup.streams[stream_id].cudastream->single_task([=]()-> void{});
+                                &stream_setup.streams[stream_id].cudastream,
+                                &stream_setup.streams[stream_id].long_kernel_event);
 
   plmem_async_d2h_long_memcpy(&stream_setup.streams[stream_id]);
   stream_setup.streams[stream_id].busy = true;

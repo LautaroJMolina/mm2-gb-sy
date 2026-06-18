@@ -200,11 +200,8 @@ void planalyze_long_kernel(stream_ptr_t stream, float *throughput) {
     // calculate long kernel throughput
     float long_kernel_runtime_ms = 0;
     long_kernel_runtime_ms =
-        (stream.stopevent
-             ->get_profiling_info<sycl::info::event_profiling::command_end>() -
-         stream.long_kernel_event->get_profiling_info<
-             sycl::info::event_profiling::command_start>()) /
-        1000000.0f;
+        (stream.long_kernel_event->get_profiling_info<sycl::info::event_profiling::command_end>() -
+         stream.long_kernel_event->get_profiling_info<sycl::info::event_profiling::command_start>()) / 1000000.0f;
     float long_kernel_througput = long_seg_sc_pairs / long_kernel_runtime_ms / (float)1000;
 #ifdef DEBUG_VERBOSE
     fprintf(stderr, "[DEBUG] Long Seg kernel throughput: %.2f Mpairs/s\n", long_kernel_througput);
