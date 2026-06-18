@@ -11,20 +11,20 @@ endif
 
 ROOT_DIR     := $(shell dirname $(shell which $(GPU_CC)))
 
-TARGET_0_SRC_0 = ./gpu/planalyze.dp.cpp
-TARGET_0_OBJ_0 = ./gpu/planalyze.dp.o
+TARGET_0_SRC_0 = ./gpu/planalyze.cpp
+TARGET_0_OBJ_0 = ./gpu/planalyze.o
 
-TARGET_0_SRC_1 = ./gpu/plchain.dp.cpp
-TARGET_0_OBJ_1 = ./gpu/plchain.dp.o
+TARGET_0_SRC_1 = ./gpu/plchain.cpp
+TARGET_0_OBJ_1 = ./gpu/plchain.o
 
-TARGET_0_SRC_2 = ./gpu/plmem.dp.cpp
-TARGET_0_OBJ_2 = ./gpu/plmem.dp.o
+TARGET_0_SRC_2 = ./gpu/plmem.cpp
+TARGET_0_OBJ_2 = ./gpu/plmem.o
 
-TARGET_0_SRC_3 = ./gpu/plrange.dp.cpp
-TARGET_0_OBJ_3 = ./gpu/plrange.dp.o
+TARGET_0_SRC_3 = ./gpu/plrange.cpp
+TARGET_0_OBJ_3 = ./gpu/plrange.o
 
-TARGET_0_SRC_4 = ./gpu/plscore.dp.cpp
-TARGET_0_OBJ_4 = ./gpu/plscore.dp.o
+TARGET_0_SRC_4 = ./gpu/plscore.cpp
+TARGET_0_OBJ_4 = ./gpu/plscore.o
 TARGET_0_FLAG = ${FLAGS}
 
 .PHONY:all clean
