@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
-#include "plrange.dp.hpp"
+#include "plrange.hpp"
 
 #ifdef DEBUG_PRINT
 const sycl::property_list prop_list = sycl::property_list{sycl::property::queue::in_order(), sycl::property::queue::enable_profiling()};

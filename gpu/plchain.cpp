@@ -13,16 +13,16 @@ const sycl::property_list prop_list = sycl::property_list{sycl::property::queue:
 
 #include "../mmpriv.h"
 #include "plchain.h"
-#include "plmem.dp.hpp"
-#include "plrange.dp.hpp"
-#include "plscore.dp.hpp"
+#include "plmem.hpp"
+#include "plrange.hpp"
+#include "plscore.hpp"
 #include "syclcheck.hpp"
 #include <algorithm>
 #include <utility>
 
 #ifdef DEBUG_CHECK
 #include "debug.h"
-#include "planalyze.dp.hpp"
+#include "planalyze.hpp"
 #endif // DEBUG_CHECK
 
 // utils functions

@@ -6,9 +6,9 @@
 
 #include <sycl/sycl.hpp>
 #include "syclcheck.hpp"
-#include "plmem.dp.hpp"
-#include "plrange.dp.hpp"
-#include "plscore.dp.hpp"
+#include "plmem.hpp"
+#include "plrange.hpp"
+#include "plscore.hpp"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>

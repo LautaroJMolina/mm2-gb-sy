@@ -9,8 +9,8 @@
 #include <sycl/sycl.hpp>
 #include "plchain.h"
 #include "plutils.h"
-#include "plmem.dp.hpp"
-#include "plscore.dp.hpp"
+#include "plmem.hpp"
+#include "plscore.hpp"
 
 #ifdef DEBUG_CHECK
 void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]);

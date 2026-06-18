@@ -2,7 +2,7 @@
 #define _PLRANGE_CUH_
 
 #include <sycl/sycl.hpp>
-#include "plmem.dp.hpp"
+#include "plmem.hpp"
 #include <assert.h>
 
 #ifdef __cplusplus

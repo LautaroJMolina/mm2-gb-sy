@@ -3,7 +3,7 @@
 
 #include <sycl/sycl.hpp>
 #include "../mmpriv.h"
-#include "plmem.dp.hpp"
+#include "plmem.hpp"
 
 #ifdef __cplusplus
 extern "C" {
