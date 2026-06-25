@@ -120,8 +120,7 @@ inline int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t a
 inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range, 
                     const size_t start_idx, const size_t end_idx,
                     int32_t* f, uint16_t* p,
-                    Misc misc,sycl::nd_item<3> item_ct1){
-    const Misc blk_misc = misc;
+                    const Misc misc, sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     // init f and p
     for (size_t i = start_idx + tid; i < end_idx; i += item_ct1.get_local_range(2)) {
@@ -139,8 +138,8 @@ inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* ancho
                                 anchors_y[i],
                                 sid [i+j+1],
                                 sid [i],
-                                blk_misc.max_dist_x, blk_misc.max_dist_y, blk_misc.bw, blk_misc.chn_pen_gap, 
-                                blk_misc.chn_pen_skip, blk_misc.is_cdna, blk_misc.n_seg);
+                                misc.max_dist_x, misc.max_dist_y, misc.bw, misc.chn_pen_gap, 
+                                misc.chn_pen_skip, misc.is_cdna, misc.n_seg);
             if (sc == INT32_MIN) continue;
             sc += f[i];
             if (sc >= f[i+j+1] && sc != MM_QSPAN) {
@@ -158,8 +157,7 @@ inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* ancho
 inline void compute_sc_seg_multi_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range, 
                     const size_t start_idx, const size_t end_idx,
                     int32_t* f, uint16_t* p, 
-                    Misc misc,sycl::nd_item<3> item_ct1){
-    const Misc blk_misc = misc;
+                    const Misc misc, sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
     // init f and p
@@ -184,8 +182,8 @@ inline void compute_sc_seg_multi_wf(const int32_t* anchors_x, const int32_t* anc
                                 anchors_y[i],
                                 sid [i+j+1],
                                 sid [i],
-                                blk_misc.max_dist_x, blk_misc.max_dist_y, blk_misc.bw, blk_misc.chn_pen_gap, 
-                                blk_misc.chn_pen_skip, blk_misc.is_cdna, blk_misc.n_seg);
+                                misc.max_dist_x, misc.max_dist_y, misc.bw, misc.chn_pen_gap, 
+                                misc.chn_pen_skip, misc.is_cdna, misc.n_seg);
             if (sc == INT32_MIN) continue;
             sc += f[i];
             if (sc >= f[i+j+1] && sc != MM_QSPAN) {
@@ -430,7 +428,7 @@ template <size_t long_block_size>
 
 void score_generation_long(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
-                                int32_t* f, uint16_t* p, Misc misc,sycl::nd_item<3> item_ct1){
+                                int32_t* f, uint16_t* p, Misc misc, sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
 
@@ -453,7 +451,7 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
                                 seg_t *long_seg, unsigned int* long_seg_count,
                                 int32_t* f, uint16_t* p, unsigned int* map,
                                 const Misc misc, unsigned &curr_long_segid,
-                                unsigned int &segid,sycl::nd_item<3> item_ct1){
+                                sycl::local_accessor<unsigned int, 1> segid, sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
     unsigned int seg_count = 0;
@@ -467,7 +465,7 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
         curr_long_segid = item_ct1.get_group_range(2);
     }
     if (tid == 0) {
-        segid = bid;
+        segid[0] = bid;
     }
 
     /*
@@ -481,8 +479,8 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
         sycl::memory_scope::device, sycl::access::address_space::generic_space> \
         atomic_curr_long_segid(curr_long_segid);
 
-    while (segid < *long_seg_count) {
-        seg_t seg = long_seg[map[segid]]; // sorted
+    while (segid[0] < *long_seg_count) {
+        seg_t seg = long_seg[map[segid[0]]]; // sorted
         // seg_t seg = long_seg[segid]; // unsorted
         /*
         DPCT1118:5: SYCL group functions and algorithms must be encountered in
@@ -491,7 +489,7 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
         compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx,
                                 seg.end_idx, f, p, misc, item_ct1);
         seg_count++;
-        if (tid == 0) segid =
+        if (tid == 0) segid[0] =
             atomic_curr_long_segid.fetch_add(1U);
         /*
         DPCT1118:6: SYCL group functions and algorithms must be encountered in
@@ -509,7 +507,7 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
 void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                         size_t *seg_start_arr, 
                         int32_t* f, uint16_t* p, size_t total_n, size_t seg_count,
-                        const Misc misc,sycl::nd_item<3> item_ct1) {
+                        const Misc misc, sycl::nd_item<3> item_ct1) {
 
     // NOTE: each block deal with one batch 
     // the number of threads in a block is fixed, so we need to calculate iter
@@ -547,10 +545,7 @@ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid,
 /* host functions begin */
 score_kernel_config_t score_kernel_config;
 
-void plscore_upload_misc(Misc input_misc) {
-  sycl::queue q(sycl_async_handler, prop_list);
-  sycl::queue &q_ct1 = q;
-  
+void plscore_upload_misc(Misc input_misc, sycl::queue q_ct1) {
   misc = sycl::malloc_device<Misc>(1, q_ct1);
   seg_cutoff = sycl::malloc_device<int>(2, q_ct1);
   curr_long_segid = sycl::malloc_device<unsigned>(1, q_ct1);
@@ -561,10 +556,7 @@ void plscore_upload_misc(Misc input_misc) {
   q_ct1.wait_and_throw();
 }
 
-void plscore_free_misc() {
-  sycl::queue q(sycl_async_handler, prop_list);
-  sycl::queue &q_ct1 = q;
-
+void plscore_free_misc(sycl::queue q_ct1) {
   sycl::free(misc, q_ct1);
   sycl::free(seg_cutoff, q_ct1);
   sycl::free(curr_long_segid, q_ct1);
@@ -675,7 +667,8 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 score_kernel_config.short_blockdim);
         exit(1);
     }
-    sycl_check(**stream);
+    (*stream)->throw_asynchronous();
+
 
 
     if (score_kernel_config.mid_blockdim == 128){
@@ -793,7 +786,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 score_kernel_config.mid_blockdim);
         exit(1);
     }
-    sycl_check(**stream);
+    (*stream)->throw_asynchronous();
 
 #ifdef DEBUG_PRINT
     // fprintf(stderr, "[Info] %s (%s:%d) short mid score kernel launched\n", __func__, __FILE__, __LINE__);
@@ -824,7 +817,7 @@ void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
       const Misc *misc_ptr_ct1 = misc;
       unsigned *curr_long_segid_ptr_ct1 = curr_long_segid;
 
-      sycl::local_accessor<unsigned int, 0> segid_acc_ct1(cgh);
+      sycl::local_accessor<unsigned int, 1> segid_acc_ct1(sycl::range<1>(1), cgh);
 
       auto dev_mem_d_ax_long_ct0 = dev_mem->d_ax_long;
       auto dev_mem_d_ay_long_ct1 = dev_mem->d_ay_long;
@@ -856,7 +849,7 @@ void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
         exit(1);
     }
 
-    sycl_check(**stream);
+    (*stream)->throw_asynchronous();
 
 #ifdef DEBUG_PRINT
     // fprintf(stderr, "[Info] %s (%s:%d) long score generation launched\n", __func__, __FILE__, __LINE__);
@@ -902,7 +895,7 @@ void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
                        });
     });
   }
-  sycl_check(**stream);
+  (*stream)->throw_asynchronous();
 #ifdef DEBUG_VERBOSE
     fprintf(stderr, "[M::%s] score generation kernel launch success\n", __func__);
 #endif

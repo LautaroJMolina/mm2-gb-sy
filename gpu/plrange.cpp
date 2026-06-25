@@ -236,10 +236,7 @@ extern "C" {
 /* host functions begin */
 range_kernel_config_t range_kernel_config;
 
-void plrange_upload_misc(Misc misc) {
-  sycl::queue q(sycl_async_handler, prop_list);
-  sycl::queue &q_ct1 = q; 
-
+void plrange_upload_misc(Misc misc, sycl::queue q_ct1) {
   d_vec = sycl::malloc_device<int>(3, q_ct1);
 
   q_ct1.memcpy(&d_vec[0], &misc.max_dist_x, sizeof(int));
@@ -248,10 +245,7 @@ void plrange_upload_misc(Misc misc) {
   q_ct1.wait_and_throw();
 }
 
-void plrange_free_misc() {
-  sycl::queue q(sycl_async_handler, prop_list);
-  sycl::queue &q_ct1 = q; 
-
+void plrange_free_misc(sycl::queue q_ct1) {
   sycl::free(d_vec, q_ct1);
   q_ct1.wait_and_throw();
 }
@@ -298,7 +292,7 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
           });
     });
   }
-  sycl_check(**stream);
+  (*stream)->throw_asynchronous();
 #ifdef DEBUG_PRINT
     // fprintf(stderr, "[Info] %s (%s:%d): Batch total_n %lu, Range Kernel Launched, grid %d cut %d\n", __func__, __FILE__, __LINE__, total_n, DimGrid.x, cut_num);
 #endif
@@ -307,10 +301,13 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
 void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
     size_t total_n = dev_mem->total_n, cut_num = dev_mem->num_cut;
     int griddim = dev_mem->griddim;
+  
     sycl::range<3> DimBlock(1, 1, range_kernel_config.blockdim);
     sycl::range<3> DimGrid(1, 1, griddim);
 
-    plrange_upload_misc(misc);
+    sycl::queue q_ct1(sycl_async_handler, prop_list); 
+
+    plrange_upload_misc(misc, q_ct1);
 
     // Run kernel
 #ifdef DEBUG_PRINT
@@ -323,7 +320,6 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
     Adjust the work-group size if needed.
     */
   
-  sycl::queue q_ct1(sycl_async_handler, prop_list); 
 
   {
     q_ct1.submit([&](sycl::handler &cgh) {

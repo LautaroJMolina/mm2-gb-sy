@@ -320,8 +320,7 @@ int plchain_post_gpu_helper(streamSetup_t stream_setup, int stream_id,
 void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc,
                              streamSetup_t stream_setup, int thread_id,
                              void *km) {
-  sycl::queue q(sycl_async_handler, prop_list);
-  sycl::queue &q_ct1 = q; 
+  sycl::queue q_ct1(sycl_async_handler, prop_list);
   chain_read_t *reads = *reads_;
   *reads_ = NULL;
   int n_read = *n_read_;
@@ -506,9 +505,11 @@ extern "C" {
 
 void init_stream_gpu(size_t *total_n, int *max_reads, int *min_n,
                      char gpu_config_file[], Misc misc) {
-  plmem_stream_initialize(total_n, max_reads, min_n, gpu_config_file);
-  plrange_upload_misc(misc);
-  plscore_upload_misc(misc);
+  sycl::queue q_ct1(sycl_async_handler, prop_list);
+
+  plmem_stream_initialize(total_n, max_reads, min_n, gpu_config_file, q_ct1);
+  plrange_upload_misc(misc, q_ct1);
+  plscore_upload_misc(misc, q_ct1);
 #ifdef DEBUG_PRINT
   fprintf(stderr, "[Info::%s] gpu initialized for chaining with config %s\n",
           __func__, gpu_config_file);
@@ -586,9 +587,12 @@ void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt,
 }
 
 void free_stream_gpu(int n_threads) {
-  plmem_stream_cleanup();
-  plrange_free_misc();
-  plscore_free_misc();
+  sycl::queue q_ct1(sycl_async_handler, prop_list); 
+
+  plmem_stream_cleanup(q_ct1);
+
+  plrange_free_misc(q_ct1);
+  plscore_free_misc(q_ct1);
 
   size_t gpu_free_mem, gpu_total_mem;
   /*
