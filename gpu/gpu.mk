@@ -3,7 +3,7 @@ GPU_CC := acpp
 #DPCT2001:53: You can link with more libraries by adding them here.
 LIB := 
 
-GPU_FLAGS := $(CFLAGS)
+GPU_FLAGS := $(CFLAGS) -ffast-math -ffp-contract=fast
 
 ifeq ($(shell which $(GPU_CC)),)
     $(error ERROR - $(GPU_CC) compiler not found)
