@@ -237,7 +237,7 @@ extern "C" {
 range_kernel_config_t range_kernel_config;
 
 void plrange_upload_misc(Misc misc, sycl::queue q_ct1) {
-  d_vec = sycl::malloc_device<int>(3, q_ct1);
+  d_vec = sycl::malloc_host<int>(3, q_ct1);
 
   q_ct1.memcpy(&d_vec[0], &misc.max_dist_x, sizeof(int));
   q_ct1.memcpy(&d_vec[1], &misc.max_iter, sizeof(int));
@@ -266,9 +266,9 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
     */
   {
     *start_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      const int *d_max_dist_x_ptr_ct1 = &d_vec[0];
-      const int *d_max_iter_ptr_ct1 = &d_vec[1];
-      const int *d_cut_check_anchors_ptr_ct1 = &d_vec[2];
+      const int d_max_dist_x_ptr_ct1 = d_vec[0];
+      const int d_max_iter_ptr_ct1 = d_vec[1];
+      const int d_cut_check_anchors_ptr_ct1 = d_vec[2];
 
       const int32_t *dev_mem_d_ax_ct0 = dev_mem->d_ax;
       const int32_t *dev_mem_d_xrev_ct1 = dev_mem->d_xrev;
@@ -287,8 +287,8 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
                 dev_mem_d_ax_ct0, dev_mem_d_xrev_ct1, dev_mem_d_start_idx_ct2,
                 dev_mem_d_read_end_idx_ct3, dev_mem_d_range_ct4,
                 dev_mem_d_cut_ct5, dev_mem_d_cut_start_idx_ct6, total_n,
-                tmp_anchors_per_block, *d_max_dist_x_ptr_ct1, *d_max_iter_ptr_ct1,
-                *d_cut_check_anchors_ptr_ct1, item_ct1);
+                tmp_anchors_per_block, d_max_dist_x_ptr_ct1, d_max_iter_ptr_ct1,
+                d_cut_check_anchors_ptr_ct1, item_ct1);
           });
     });
   }
@@ -323,9 +323,9 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
 
   {
     q_ct1.submit([&](sycl::handler &cgh) {
-      const int *d_max_dist_x_ptr_ct1 = &d_vec[0];
-      const int *d_max_iter_ptr_ct1 = &d_vec[1];
-      const int *d_cut_check_anchors_ptr_ct1 = &d_vec[2];
+      const int d_max_dist_x_ptr_ct1 = d_vec[0];
+      const int d_max_iter_ptr_ct1 = d_vec[1];
+      const int d_cut_check_anchors_ptr_ct1 = d_vec[2];
 
       const int32_t *dev_mem_d_ax_ct0 = dev_mem->d_ax;
       const int32_t *dev_mem_d_xrev_ct1 = dev_mem->d_xrev;
@@ -344,8 +344,8 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
                 dev_mem_d_ax_ct0, dev_mem_d_xrev_ct1, dev_mem_d_start_idx_ct2,
                 dev_mem_d_read_end_idx_ct3, dev_mem_d_range_ct4,
                 dev_mem_d_cut_ct5, dev_mem_d_cut_start_idx_ct6, total_n,
-                tmp_anchors_per_block, *d_max_dist_x_ptr_ct1, *d_max_iter_ptr_ct1,
-                *d_cut_check_anchors_ptr_ct1, item_ct1);
+                tmp_anchors_per_block, d_max_dist_x_ptr_ct1, d_max_iter_ptr_ct1,
+                d_cut_check_anchors_ptr_ct1, item_ct1);
           });
     });
   }

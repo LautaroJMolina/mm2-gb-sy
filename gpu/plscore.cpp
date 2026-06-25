@@ -331,9 +331,9 @@ void score_generation_short(
 
     size_t long_seg_start_idx;
 
-    sycl::atomic_ref<size_t, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::generic_space> atomic_total_n_long(*total_n_long);
-    sycl::atomic_ref<unsigned int, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::generic_space> atomic_mid_seg_count(*mid_seg_count);
-    sycl::atomic_ref<unsigned int, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::generic_space> atomic_long_seg_count(*long_seg_count);
+    sycl::atomic_ref<size_t, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::global_space> atomic_total_n_long(*total_n_long);
+    sycl::atomic_ref<unsigned int, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::global_space> atomic_mid_seg_count(*mid_seg_count);
+    sycl::atomic_ref<unsigned int, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::global_space> atomic_long_seg_count(*long_seg_count);
 
     for (int segid = bid; segid < seg_count;
          segid += item_ct1.get_group_range(2)) {
@@ -450,7 +450,7 @@ template <size_t long_block_size>
 void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
                                 int32_t* f, uint16_t* p, unsigned int* map,
-                                const Misc misc, unsigned &curr_long_segid,
+                                const Misc misc, unsigned *curr_long_segid,
                                 sycl::local_accessor<unsigned int, 1> segid, sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
@@ -462,7 +462,7 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
 
     if (tid == 0 && bid == 0) {
         // init the first batch as the size of the grid
-        curr_long_segid = item_ct1.get_group_range(2);
+        *curr_long_segid = item_ct1.get_group_range(2);
     }
     if (tid == 0) {
         segid[0] = bid;
@@ -476,8 +476,8 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
     item_ct1.barrier();
 
     sycl::atomic_ref<unsigned, sycl::memory_order::relaxed,
-        sycl::memory_scope::device, sycl::access::address_space::generic_space> \
-        atomic_curr_long_segid(curr_long_segid);
+        sycl::memory_scope::device, sycl::access::address_space::global_space> \
+        atomic_curr_long_segid(*curr_long_segid);
 
     while (segid[0] < *long_seg_count) {
         seg_t seg = long_seg[map[segid[0]]]; // sorted
@@ -546,7 +546,7 @@ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid,
 score_kernel_config_t score_kernel_config;
 
 void plscore_upload_misc(Misc input_misc, sycl::queue q_ct1) {
-  misc = sycl::malloc_device<Misc>(1, q_ct1);
+  misc = sycl::malloc_host<Misc>(1, q_ct1);
   seg_cutoff = sycl::malloc_device<int>(2, q_ct1);
   curr_long_segid = sycl::malloc_device<unsigned>(1, q_ct1);
 
@@ -579,7 +579,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     if (score_kernel_config.short_blockdim == 32 ){
 
     (*stream)->submit([&](sycl::handler &cgh) {
-      const Misc *misc_ptr_ct1 = misc;
+      const Misc misc_ptr_ct1 = *misc;
       const int *long_seg_cutoff_ptr_ct1 = &seg_cutoff[0];
       const int *mid_seg_cutoff_ptr_ct1 = &seg_cutoff[1];
 
@@ -614,14 +614,14 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 buffer_size_long, dev_mem_d_long_seg_ct15,
                 dev_mem_d_long_seg_og_ct16, dev_mem_d_long_seg_count_ct17,
                 dev_mem_d_mid_seg_ct18, dev_mem_d_mid_seg_count_ct19,
-                *misc_ptr_ct1, *long_seg_cutoff_ptr_ct1,
+                misc_ptr_ct1, *long_seg_cutoff_ptr_ct1,
                 *mid_seg_cutoff_ptr_ct1, item_ct1);
           });
     });
     } else if (score_kernel_config.short_blockdim == 64) {
 
     (*stream)->submit([&](sycl::handler &cgh) {
-      const Misc *misc_ptr_ct1 = misc;
+      const Misc misc_ptr_ct1 = *misc;
       const int *long_seg_cutoff_ptr_ct1 = &seg_cutoff[0];
       const int *mid_seg_cutoff_ptr_ct1 = &seg_cutoff[1];
 
@@ -656,7 +656,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 buffer_size_long, dev_mem_d_long_seg_ct15,
                 dev_mem_d_long_seg_og_ct16, dev_mem_d_long_seg_count_ct17,
                 dev_mem_d_mid_seg_ct18, dev_mem_d_mid_seg_count_ct19,
-                *misc_ptr_ct1, *long_seg_cutoff_ptr_ct1,
+                misc_ptr_ct1, *long_seg_cutoff_ptr_ct1,
                 *mid_seg_cutoff_ptr_ct1, item_ct1);
           });
     });
@@ -674,7 +674,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
     if (score_kernel_config.mid_blockdim == 128){
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      const Misc *misc_ptr_ct1 = misc;
+      const Misc misc_ptr_ct1 = *misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -692,13 +692,13 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                              dev_mem_d_ax_ct0, dev_mem_d_ay_ct1,
                              dev_mem_d_sid_ct2, dev_mem_d_range_ct3,
                              dev_mem_d_mid_seg_ct4, dev_mem_d_mid_seg_count_ct5,
-                             dev_mem_d_f_ct6, dev_mem_d_p_ct7, *misc_ptr_ct1, item_ct1);
+                             dev_mem_d_f_ct6, dev_mem_d_p_ct7, misc_ptr_ct1, item_ct1);
                        });
     });
     } else if (score_kernel_config.mid_blockdim == 256){
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      const Misc *misc_ptr_ct1 = misc;
+      const Misc misc_ptr_ct1 = *misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -716,7 +716,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                              dev_mem_d_ax_ct0, dev_mem_d_ay_ct1,
                              dev_mem_d_sid_ct2, dev_mem_d_range_ct3,
                              dev_mem_d_mid_seg_ct4, dev_mem_d_mid_seg_count_ct5,
-                             dev_mem_d_f_ct6, dev_mem_d_p_ct7, *misc_ptr_ct1, item_ct1);
+                             dev_mem_d_f_ct6, dev_mem_d_p_ct7, misc_ptr_ct1, item_ct1);
                        });
     });
     } else if (score_kernel_config.mid_blockdim == 512){
@@ -727,7 +727,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
         */
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      const Misc *misc_ptr_ct1 = misc;
+      const Misc misc_ptr_ct1 = *misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -745,7 +745,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                              dev_mem_d_ax_ct0, dev_mem_d_ay_ct1,
                              dev_mem_d_sid_ct2, dev_mem_d_range_ct3,
                              dev_mem_d_mid_seg_ct4, dev_mem_d_mid_seg_count_ct5,
-                             dev_mem_d_f_ct6, dev_mem_d_p_ct7, *misc_ptr_ct1, item_ct1);
+                             dev_mem_d_f_ct6, dev_mem_d_p_ct7, misc_ptr_ct1, item_ct1);
                        });
     });
     } else if (score_kernel_config.mid_blockdim == 1024){
@@ -756,7 +756,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
         */
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
-      const Misc *misc_ptr_ct1 = misc;
+      const Misc misc_ptr_ct1 = *misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -775,7 +775,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 dev_mem_d_ax_ct0, dev_mem_d_ay_ct1, dev_mem_d_sid_ct2,
                 dev_mem_d_range_ct3, dev_mem_d_mid_seg_ct4,
                 dev_mem_d_mid_seg_count_ct5, dev_mem_d_f_ct6, dev_mem_d_p_ct7,
-                *misc_ptr_ct1, item_ct1);
+                misc_ptr_ct1, item_ct1);
           });
     });
     } else {
@@ -814,7 +814,7 @@ void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
     */
 
     (**event) = (*stream)->submit([&](sycl::handler &cgh) {
-      const Misc *misc_ptr_ct1 = misc;
+      const Misc misc_ptr_ct1 = *misc;
       unsigned *curr_long_segid_ptr_ct1 = curr_long_segid;
 
       sycl::local_accessor<unsigned int, 1> segid_acc_ct1(sycl::range<1>(1), cgh);
@@ -838,7 +838,7 @@ void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
                 dev_mem_d_sid_long_ct2, dev_mem_d_range_long_ct3,
                 dev_mem_d_long_seg_ct4, dev_mem_d_long_seg_count_ct5,
                 dev_mem_d_f_long_ct6, dev_mem_d_p_long_ct7, dev_mem_d_map_ct8,
-                *misc_ptr_ct1, *curr_long_segid_ptr_ct1, segid_acc_ct1,
+                misc_ptr_ct1, curr_long_segid_ptr_ct1, segid_acc_ct1,
                 item_ct1);
           });
     });
@@ -874,7 +874,7 @@ void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
   {
 
     (*stream)->submit([&](sycl::handler &cgh) {
-      const Misc *misc_ptr_ct1 = misc;
+      const Misc misc_ptr_ct1 = *misc;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -890,7 +890,7 @@ void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
                              dev_mem_d_ax_ct0, dev_mem_d_ay_ct1,
                              dev_mem_d_sid_ct2, dev_mem_d_range_ct3,
                              dev_mem_d_cut_ct4, dev_mem_d_f_ct5,
-                             dev_mem_d_p_ct6, total_n, cut_num, *misc_ptr_ct1,
+                             dev_mem_d_p_ct6, total_n, cut_num, misc_ptr_ct1,
                              item_ct1);
                        });
     });
