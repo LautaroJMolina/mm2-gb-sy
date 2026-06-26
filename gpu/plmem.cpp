@@ -22,7 +22,7 @@ const sycl::property_list prop_list = sycl::property_list{sycl::property::queue:
 #endif
 
 void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
-                           int range_grid_size, size_t buffer_size_long, sycl::queue q_ct1) {
+                           int range_grid_size, size_t buffer_size_long, sycl::queue &q_ct1) {
 #ifdef DEBUG_PRINT
   size_t host_mem_size;
   host_mem_size =
@@ -50,7 +50,7 @@ void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
   host_mem->long_segs_num = sycl::malloc_host<unsigned int>(1, q_ct1);
 }
 
-void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long, sycl::queue q_ct1) {
+void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long, sycl::queue &q_ct1) {
 #ifdef DEBUG_PRINT
   size_t host_mem_size;
   host_mem_size =
@@ -72,7 +72,7 @@ void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long, sycl::
   long_mem->total_long_segs_n = sycl::malloc_host<size_t>(1, q_ct1);
 }
 
-void plmem_free_host_mem(hostMemPtr *host_mem, sycl::queue q_ct1) {
+void plmem_free_host_mem(hostMemPtr *host_mem, sycl::queue &q_ct1) {
   sycl::free(host_mem->ax, q_ct1);
   sycl::free(host_mem->ay, q_ct1);
   sycl::free(host_mem->sid, q_ct1);
@@ -85,7 +85,7 @@ void plmem_free_host_mem(hostMemPtr *host_mem, sycl::queue q_ct1) {
   sycl::free(host_mem->long_segs_num, q_ct1);
 }
 
-void plmem_free_long_mem(longMemPtr *long_mem, sycl::queue q_ct1) {
+void plmem_free_long_mem(longMemPtr *long_mem, sycl::queue &q_ct1) {
   sycl::free(long_mem->long_segs_og_idx, q_ct1);
   sycl::free(long_mem->f_long, q_ct1);
   sycl::free(long_mem->p_long, q_ct1);
@@ -94,7 +94,7 @@ void plmem_free_long_mem(longMemPtr *long_mem, sycl::queue q_ct1) {
 }
 
 void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
-                             int range_grid_size, int num_cut, sycl::queue q_ct1) {
+                             int range_grid_size, int num_cut, sycl::queue &q_ct1) {
   // data array
   dev_mem->d_ax = sycl::malloc_device<int32_t>(anchor_per_batch, q_ct1);
   dev_mem->d_ay = sycl::malloc_device<int32_t>(anchor_per_batch, q_ct1);
@@ -154,7 +154,7 @@ void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
       sycl::malloc_device<uint16_t>(dev_mem->buffer_size_long, q_ct1);
 }
 
-void plmem_free_device_mem(deviceMemPtr *dev_mem, sycl::queue q_ct1) {
+void plmem_free_device_mem(deviceMemPtr *dev_mem, sycl::queue &q_ct1) {
   sycl::free(dev_mem->d_ax, q_ct1);
   sycl::free(dev_mem->d_ay, q_ct1);
   sycl::free(dev_mem->d_sid, q_ct1);
@@ -745,7 +745,7 @@ void plmem_initialize(size_t *max_total_n_, int *max_read_, int *min_anchors_) {
 
 // initialize global variable stream_setup
 void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
-                             int *min_anchors_, char *gpu_config_file, sycl::queue q_ct1) {
+                             int *min_anchors_, char *gpu_config_file, sycl::queue &q_ct1) {
   int num_stream;
   size_t max_anchors_stream, max_range_grid, max_num_cut, long_seg_buffer_size;
 
@@ -827,7 +827,7 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
   stream_setup.long_seg_buffer_size_stream = long_seg_buffer_size;
 }
 
-void plmem_stream_cleanup(sycl::queue q_ct1) {
+void plmem_stream_cleanup(sycl::queue &q_ct1) {
   for (int i = 0; i < stream_setup.num_stream; i++) {
     try {
       delete stream_setup.streams[i].cudastream;

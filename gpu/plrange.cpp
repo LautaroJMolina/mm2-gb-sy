@@ -236,7 +236,7 @@ extern "C" {
 /* host functions begin */
 range_kernel_config_t range_kernel_config;
 
-void plrange_upload_misc(Misc misc, sycl::queue q_ct1) {
+void plrange_upload_misc(Misc misc, sycl::queue &q_ct1) {
   d_vec = sycl::malloc_host<int>(3, q_ct1);
 
   q_ct1.memcpy(&d_vec[0], &misc.max_dist_x, sizeof(int));
@@ -245,7 +245,7 @@ void plrange_upload_misc(Misc misc, sycl::queue q_ct1) {
   q_ct1.wait_and_throw();
 }
 
-void plrange_free_misc(sycl::queue q_ct1) {
+void plrange_free_misc(sycl::queue &q_ct1) {
   sycl::free(d_vec, q_ct1);
   q_ct1.wait_and_throw();
 }

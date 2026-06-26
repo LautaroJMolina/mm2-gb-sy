@@ -121,18 +121,18 @@ extern streamSetup_t stream_setup;
 /* memory management methods */
 // initialization and cleanup
 void plmem_initialize(size_t *max_total_n, int *max_read, int *min_n);
-void plmem_stream_initialize(size_t *max_total_n, int *max_read, int *min_n, char* gpu_config_file, sycl::queue q_ct1);
-void plmem_stream_cleanup(sycl::queue q_ct1);
+void plmem_stream_initialize(size_t *max_total_n, int *max_read, int *min_n, char* gpu_config_file, sycl::queue &q_ct1);
+void plmem_stream_cleanup(sycl::queue &q_ct1);
 
 // alloc and free
 void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
-                           int range_grid_size, size_t buffer_size_long, sycl::queue q_ct1);
-void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long, sycl::queue q_ct1);
-void plmem_free_host_mem(hostMemPtr *host_mem, sycl::queue q_ct1);
-void plmem_free_long_mem(longMemPtr *long_mem, sycl::queue q_ct1);
+                           int range_grid_size, size_t buffer_size_long, sycl::queue &q_ct1);
+void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long, sycl::queue &q_ct1);
+void plmem_free_host_mem(hostMemPtr *host_mem, sycl::queue &q_ct1);
+void plmem_free_long_mem(longMemPtr *long_mem, sycl::queue &q_ct1);
 void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
-                             int range_grid_size, int num_cut, sycl::queue q_ct1);
-void plmem_free_device_mem(deviceMemPtr *dev_mem, sycl::queue q_ct1);
+                             int range_grid_size, int num_cut, sycl::queue &q_ct1);
+void plmem_free_device_mem(deviceMemPtr *dev_mem, sycl::queue &q_ct1);
 
 // data movement
 void plmem_reorg_input_arr(chain_read_t *reads, int n_read,

@@ -11,8 +11,8 @@ extern "C" {
 
 #define MM_QSPAN 15
 
-void plscore_upload_misc(Misc misc, sycl::queue q_ct1);
-void plscore_free_misc(sycl::queue q_ct1);
+void plscore_upload_misc(Misc misc, sycl::queue &q_ct1);
+void plscore_free_misc(sycl::queue &q_ct1);
 void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
                                     sycl::queue **stream);
 void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,

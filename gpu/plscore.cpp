@@ -545,7 +545,7 @@ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid,
 /* host functions begin */
 score_kernel_config_t score_kernel_config;
 
-void plscore_upload_misc(Misc input_misc, sycl::queue q_ct1) {
+void plscore_upload_misc(Misc input_misc, sycl::queue &q_ct1) {
   misc = sycl::malloc_host<Misc>(1, q_ct1);
   seg_cutoff = sycl::malloc_device<int>(2, q_ct1);
   curr_long_segid = sycl::malloc_device<unsigned>(1, q_ct1);
@@ -556,7 +556,7 @@ void plscore_upload_misc(Misc input_misc, sycl::queue q_ct1) {
   q_ct1.wait_and_throw();
 }
 
-void plscore_free_misc(sycl::queue q_ct1) {
+void plscore_free_misc(sycl::queue &q_ct1) {
   sycl::free(misc, q_ct1);
   sycl::free(seg_cutoff, q_ct1);
   sycl::free(curr_long_segid, q_ct1);

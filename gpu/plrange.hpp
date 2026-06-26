@@ -12,8 +12,8 @@ extern "C" {
 typedef __int32_t int32_t;
 
 /* functions declaration */
-void plrange_upload_misc(Misc misc, sycl::queue q_ct1);
-void plrange_free_misc(sycl::queue q_ct1);
+void plrange_upload_misc(Misc misc, sycl::queue &q_ct1);
+void plrange_free_misc(sycl::queue &q_ct1);
 void plrange_async_range_selection(deviceMemPtr *device_mem_ptr,
                                    sycl::queue **stream,
                                    sycl::event *start_event_short);
