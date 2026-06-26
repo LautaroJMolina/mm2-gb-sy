@@ -19,7 +19,8 @@ Parallel chaining helper functions with CUDA
 */
 
 Misc *misc;
-int *seg_cutoff;
+int *long_seg_cutoff;
+int *mid_seg_cutoff;
 unsigned *curr_long_segid;
 
 /* arithmetic functions begin */
@@ -171,7 +172,7 @@ inline void compute_sc_seg_multi_wf(const int32_t* anchors_x, const int32_t* anc
     sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
     performance if there is no access to global memory.
     */
-    item_ct1.barrier();
+    sycl::group_barrier(item_ct1.get_group());
     for (size_t i=start_idx; i < end_idx; i++) {
         int32_t range_i = range[i];
         for (int32_t j = tid; j < range_i; j += item_ct1.get_local_range(2)) {
@@ -201,7 +202,7 @@ inline void compute_sc_seg_multi_wf(const int32_t* anchors_x, const int32_t* anc
         sycl::nd_item::barrier(sycl::access::fence_space::local_space) for
         better performance if there is no access to global memory.
         */
-        item_ct1.barrier();
+        sycl::group_barrier(item_ct1.get_group());
     }
     
 }
@@ -473,7 +474,7 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
     sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
     performance if there is no access to global memory.
     */
-    item_ct1.barrier();
+    sycl::group_barrier(item_ct1.get_group());
 
     sycl::atomic_ref<unsigned, sycl::memory_order::relaxed,
         sycl::memory_scope::device, sycl::access::address_space::global_space> \
@@ -500,7 +501,7 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
         sycl::nd_item::barrier(sycl::access::fence_space::local_space) for
         better performance if there is no access to global memory.
         */
-        item_ct1.barrier();
+        sycl::group_barrier(item_ct1.get_group());
     }
 }
 
@@ -547,7 +548,8 @@ score_kernel_config_t score_kernel_config;
 
 void plscore_upload_misc(Misc input_misc, sycl::queue &q_ct1) {
   misc = sycl::malloc_host<Misc>(1, q_ct1);
-  seg_cutoff = sycl::malloc_device<int>(2, q_ct1);
+  long_seg_cutoff = sycl::malloc_device<int>(1, q_ct1);
+  mid_seg_cutoff = sycl::malloc_device<int>(1, q_ct1);
   curr_long_segid = sycl::malloc_device<unsigned>(1, q_ct1);
 
   q_ct1.memcpy(misc, &input_misc, sizeof(Misc));
@@ -558,7 +560,8 @@ void plscore_upload_misc(Misc input_misc, sycl::queue &q_ct1) {
 
 void plscore_free_misc(sycl::queue &q_ct1) {
   sycl::free(misc, q_ct1);
-  sycl::free(seg_cutoff, q_ct1);
+  sycl::free(long_seg_cutoff, q_ct1);
+  sycl::free(mid_seg_cutoff, q_ct1);
   sycl::free(curr_long_segid, q_ct1);
   q_ct1.wait_and_throw();
 }
