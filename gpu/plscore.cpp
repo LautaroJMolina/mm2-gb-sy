@@ -553,8 +553,8 @@ void plscore_upload_misc(Misc input_misc, sycl::queue &q_ct1) {
   curr_long_segid = sycl::malloc_device<unsigned>(1, q_ct1);
 
   q_ct1.memcpy(misc, &input_misc, sizeof(Misc));
-  q_ct1.memcpy(&seg_cutoff[0], &score_kernel_config.long_seg_cutoff, sizeof(int));
-  q_ct1.memcpy(&seg_cutoff[1], &score_kernel_config.mid_seg_cutoff, sizeof(int));
+  q_ct1.memcpy(long_seg_cutoff, &score_kernel_config.long_seg_cutoff, sizeof(int));
+  q_ct1.memcpy(mid_seg_cutoff, &score_kernel_config.mid_seg_cutoff, sizeof(int));
   q_ct1.wait_and_throw();
 }
 
@@ -583,8 +583,8 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
 
     (*stream)->submit([&](sycl::handler &cgh) {
       const Misc misc_ptr_ct1 = *misc;
-      const int *long_seg_cutoff_ptr_ct1 = &seg_cutoff[0];
-      const int *mid_seg_cutoff_ptr_ct1 = &seg_cutoff[1];
+      const int *long_seg_cutoff_ptr_ct1 = long_seg_cutoff;
+      const int *mid_seg_cutoff_ptr_ct1 = mid_seg_cutoff;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -625,8 +625,8 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
 
     (*stream)->submit([&](sycl::handler &cgh) {
       const Misc misc_ptr_ct1 = *misc;
-      const int *long_seg_cutoff_ptr_ct1 = &seg_cutoff[0];
-      const int *mid_seg_cutoff_ptr_ct1 = &seg_cutoff[1];
+      const int *long_seg_cutoff_ptr_ct1 = long_seg_cutoff;
+      const int *mid_seg_cutoff_ptr_ct1 = mid_seg_cutoff;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
