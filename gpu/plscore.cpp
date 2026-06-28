@@ -429,7 +429,7 @@ template <size_t long_block_size>
 
 void score_generation_long(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
-                                int32_t* f, uint16_t* p, Misc misc, sycl::nd_item<3> item_ct1){
+                                int32_t* f, uint16_t* p, const Misc misc, sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
 
@@ -547,21 +547,24 @@ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid,
 score_kernel_config_t score_kernel_config;
 
 void plscore_upload_misc(Misc input_misc, sycl::queue &q_ct1) {
-  misc = sycl::malloc_host<Misc>(1, q_ct1);
-  long_seg_cutoff = sycl::malloc_device<int>(1, q_ct1);
-  mid_seg_cutoff = sycl::malloc_device<int>(1, q_ct1);
+  misc = (Misc *)std::malloc(sizeof(Misc));
+  long_seg_cutoff = (int *)std::malloc(sizeof(int));
+  mid_seg_cutoff = (int *)std::malloc(sizeof(int));
+
   curr_long_segid = sycl::malloc_device<unsigned>(1, q_ct1);
 
-  q_ct1.memcpy(misc, &input_misc, sizeof(Misc));
-  q_ct1.memcpy(long_seg_cutoff, &score_kernel_config.long_seg_cutoff, sizeof(int));
-  q_ct1.memcpy(mid_seg_cutoff, &score_kernel_config.mid_seg_cutoff, sizeof(int));
+  *misc = input_misc;
+  *long_seg_cutoff = score_kernel_config.long_seg_cutoff;
+  *mid_seg_cutoff = score_kernel_config.mid_seg_cutoff;
+
   q_ct1.wait_and_throw();
 }
 
 void plscore_free_misc(sycl::queue &q_ct1) {
-  sycl::free(misc, q_ct1);
-  sycl::free(long_seg_cutoff, q_ct1);
-  sycl::free(mid_seg_cutoff, q_ct1);
+  std::free(misc);
+  std::free(long_seg_cutoff);
+  std::free(mid_seg_cutoff);
+
   sycl::free(curr_long_segid, q_ct1);
   q_ct1.wait_and_throw();
 }
@@ -583,8 +586,8 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
 
     (*stream)->submit([&](sycl::handler &cgh) {
       const Misc misc_ptr_ct1 = *misc;
-      const int *long_seg_cutoff_ptr_ct1 = long_seg_cutoff;
-      const int *mid_seg_cutoff_ptr_ct1 = mid_seg_cutoff;
+      const int long_seg_cutoff_ptr_ct1 = *long_seg_cutoff;
+      const int mid_seg_cutoff_ptr_ct1 = *mid_seg_cutoff;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -617,16 +620,16 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 buffer_size_long, dev_mem_d_long_seg_ct15,
                 dev_mem_d_long_seg_og_ct16, dev_mem_d_long_seg_count_ct17,
                 dev_mem_d_mid_seg_ct18, dev_mem_d_mid_seg_count_ct19,
-                misc_ptr_ct1, *long_seg_cutoff_ptr_ct1,
-                *mid_seg_cutoff_ptr_ct1, item_ct1);
+                misc_ptr_ct1, long_seg_cutoff_ptr_ct1,
+                mid_seg_cutoff_ptr_ct1, item_ct1);
           });
     });
     } else if (score_kernel_config.short_blockdim == 64) {
 
     (*stream)->submit([&](sycl::handler &cgh) {
       const Misc misc_ptr_ct1 = *misc;
-      const int *long_seg_cutoff_ptr_ct1 = long_seg_cutoff;
-      const int *mid_seg_cutoff_ptr_ct1 = mid_seg_cutoff;
+      const int long_seg_cutoff_ptr_ct1 = *long_seg_cutoff;
+      const int mid_seg_cutoff_ptr_ct1 = *mid_seg_cutoff;
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -659,8 +662,8 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 buffer_size_long, dev_mem_d_long_seg_ct15,
                 dev_mem_d_long_seg_og_ct16, dev_mem_d_long_seg_count_ct17,
                 dev_mem_d_mid_seg_ct18, dev_mem_d_mid_seg_count_ct19,
-                misc_ptr_ct1, *long_seg_cutoff_ptr_ct1,
-                *mid_seg_cutoff_ptr_ct1, item_ct1);
+                misc_ptr_ct1, long_seg_cutoff_ptr_ct1,
+                mid_seg_cutoff_ptr_ct1, item_ct1);
           });
     });
     } else {

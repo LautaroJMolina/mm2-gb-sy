@@ -799,9 +799,11 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
     plmem_malloc_device_mem(&stream_setup.streams[i].dev_mem,
                             max_anchors_stream, max_range_grid, max_num_cut, q_ct1);
     q_ct1
-        .memset(stream_setup.streams[i].dev_mem.d_long_seg_count, 0, sizeof(unsigned int));
+        .memset(stream_setup.streams[i].dev_mem.d_long_seg_count, 0, sizeof(unsigned int))
+        .wait_and_throw();
     q_ct1
-        .memset(stream_setup.streams[i].dev_mem.d_mid_seg_count, 0, sizeof(unsigned int));
+        .memset(stream_setup.streams[i].dev_mem.d_mid_seg_count, 0, sizeof(unsigned int))
+        .wait_and_throw();
     q_ct1
         .memset(stream_setup.streams[i].dev_mem.d_total_n_long, 0, sizeof(size_t))
         .wait_and_throw();
