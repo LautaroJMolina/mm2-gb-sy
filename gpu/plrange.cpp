@@ -305,7 +305,7 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
 
     sycl::queue q_ct1(sycl_async_handler, prop_list); 
 
-    plrange_upload_misc(misc, q_ct1);
+    plrange_upload_misc(misc);
 
     // Run kernel
 #ifdef DEBUG_PRINT
