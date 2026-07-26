@@ -154,6 +154,9 @@ void planalyze_short_kernel(stream_ptr_t stream, int uid, float throughput[]) {
 
     free(cut);
     free(range);
+    free(long_segs);
+    free(long_range);
+    free(mid_segs);
 
 }
 #endif 

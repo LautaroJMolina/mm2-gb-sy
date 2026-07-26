@@ -1,9 +1,4 @@
 /* GPU memory management  */
-
-#ifdef DEBUG_PRINT
-#define DPCT_PROFILING_ENABLED
-#endif
-
 #include <sycl/sycl.hpp>
 #include "syclcheck.hpp"
 #include "plmem.hpp"
@@ -125,12 +120,6 @@ void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
       num_cut / (score_kernel_config.mid_seg_cutoff + 1), q_ct1);
 
   size_t gpu_free_mem, gpu_total_mem;
-  /*
-  DPCT1106:21: 'cudaMemGetInfo' was migrated with the Intel extensions for
-  device information which may not be supported by all compilers or runtimes.
-  You may need to adjust the code.
-  */
-  // dpct::get_current_device().get_memory_info(gpu_free_mem, gpu_total_mem);
 #ifdef DEBUG_PRINT
   // fprintf(stderr,
   //         "[Info] GPU free mem: %f GB, total mem: %f GB (before alloc long seg "
@@ -238,60 +227,18 @@ void plmem_async_h2d_short_memcpy(stream_ptr_t *stream_ptrs, size_t uid) {
   hostMemPtr *host_mem = &stream_ptrs->host_mems[uid];
   deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
   sycl::queue **stream = &stream_ptrs->cudastream;
-  /*
-  DPCT1124:22: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_ax, host_mem->ax,
                   sizeof(int32_t) * host_mem->total_n);
-  /*
-  DPCT1124:23: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_ay, host_mem->ay,
                   sizeof(int32_t) * host_mem->total_n);
-  /*
-  DPCT1124:24: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_sid, host_mem->sid,
                   sizeof(int8_t) * host_mem->total_n);
-  /*
-  DPCT1124:25: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_xrev, host_mem->xrev,
                   sizeof(int32_t) * host_mem->total_n);
-  /*
-  DPCT1124:26: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_start_idx, host_mem->start_idx,
                   sizeof(size_t) * host_mem->griddim);
-  /*
-  DPCT1124:27: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_read_end_idx, host_mem->read_end_idx,
                   sizeof(size_t) * host_mem->griddim);
-  /*
-  DPCT1124:28: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_cut_start_idx, host_mem->cut_start_idx,
                   sizeof(size_t) * host_mem->griddim);
   (*stream)->memset(dev_mem->d_cut, 0xff, sizeof(size_t) * host_mem->cut_num);
@@ -309,60 +256,18 @@ void plmem_async_h2d_memcpy(stream_ptr_t *stream_ptrs) {
   hostMemPtr *host_mem = &stream_ptrs->host_mems[uid];
   deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
   sycl::queue **stream = &stream_ptrs->cudastream;
-  /*
-  DPCT1124:29: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_ax, host_mem->ax,
                   sizeof(int32_t) * host_mem->total_n);
-  /*
-  DPCT1124:30: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_ay, host_mem->ay,
                   sizeof(int32_t) * host_mem->total_n);
-  /*
-  DPCT1124:31: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_sid, host_mem->sid,
                   sizeof(int8_t) * host_mem->total_n);
-  /*
-  DPCT1124:32: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_xrev, host_mem->xrev,
                   sizeof(int32_t) * host_mem->total_n);
-  /*
-  DPCT1124:33: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_start_idx, host_mem->start_idx,
                   sizeof(size_t) * host_mem->griddim);
-  /*
-  DPCT1124:34: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_read_end_idx, host_mem->read_end_idx,
                   sizeof(size_t) * host_mem->griddim);
-  /*
-  DPCT1124:35: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(dev_mem->d_cut_start_idx, host_mem->cut_start_idx,
                   sizeof(size_t) * host_mem->griddim);
   (*stream)->memset(dev_mem->d_cut, 0xff, sizeof(size_t) * host_mem->cut_num);
@@ -398,55 +303,21 @@ void plmem_async_d2h_memcpy(stream_ptr_t *stream_ptrs) {
   longMemPtr *long_mem = &stream_ptrs->long_mem;
   deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
   sycl::queue **stream = &stream_ptrs->cudastream;
-  /*
-  DPCT1124:36: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(host_mem->f, dev_mem->d_f,
                   sizeof(int32_t) * host_mem->total_n);
-  /*
-  DPCT1124:37: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(host_mem->p, dev_mem->d_p,
                   sizeof(uint16_t) * host_mem->total_n);
-  /*
-  DPCT1124:38: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
+
   (*stream)->memcpy(
       long_mem->long_segs_og_idx, dev_mem->d_long_seg_og,
       dev_mem->buffer_size_long /
           (score_kernel_config.long_seg_cutoff * score_kernel_config.cut_unit) *
           sizeof(seg_t));
-  /*
-  DPCT1124:39: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
+
   (*stream)->memcpy(host_mem->long_segs_num, dev_mem->d_long_seg_count,
                   sizeof(unsigned int));
-  /*
-  DPCT1124:40: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(long_mem->f_long, dev_mem->d_f_long,
                   sizeof(int32_t) * dev_mem->buffer_size_long);
-  /*
-  DPCT1124:41: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(long_mem->p_long, dev_mem->d_p_long,
                   sizeof(uint16_t) * dev_mem->buffer_size_long);
   (*stream)->throw_asynchronous();
@@ -456,29 +327,11 @@ void plmem_async_d2h_short_memcpy(stream_ptr_t *stream_ptrs, size_t uid) {
   hostMemPtr *host_mem = &stream_ptrs->host_mems[uid];
   deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
   sycl::queue **stream = &stream_ptrs->cudastream;
-  /*
-  DPCT1124:42: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(host_mem->f, dev_mem->d_f,
                   sizeof(int32_t) * host_mem->total_n);
-  /*
-  DPCT1124:43: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(host_mem->p, dev_mem->d_p,
                   sizeof(uint16_t) * host_mem->total_n);
   // copy back d_long_seg_count to long_segs_num, this is an accumulative value
-  /*
-  DPCT1124:44: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(host_mem->long_segs_num, dev_mem->d_long_seg_count,
                   sizeof(unsigned int));
   (*stream)->throw_asynchronous();
@@ -489,12 +342,6 @@ void plmem_async_d2h_long_memcpy(stream_ptr_t *stream_ptrs) {
   longMemPtr *long_mem = &stream_ptrs->long_mem;
   deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
   sycl::queue **stream = &stream_ptrs->cudastream;
-  /*
-  DPCT1124:45: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(
       long_mem->long_segs_og_idx, dev_mem->d_long_seg_og,
       dev_mem->buffer_size_long /
@@ -502,36 +349,12 @@ void plmem_async_d2h_long_memcpy(stream_ptr_t *stream_ptrs) {
           sizeof(seg_t));
   // cudaMemcpyAsync(&long_mem->total_long_segs_num, dev_mem->d_long_seg_count,
   //                 sizeof(unsigned int), cudaMemcpyDeviceToHost, (*stream));
-  /*
-  DPCT1124:46: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(long_mem->f_long, dev_mem->d_f_long,
                   sizeof(int32_t) * dev_mem->buffer_size_long);
-  /*
-  DPCT1124:47: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(long_mem->p_long, dev_mem->d_p_long,
                   sizeof(uint16_t) * dev_mem->buffer_size_long);
-  /*
-  DPCT1124:48: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(long_mem->total_long_segs_n, dev_mem->d_total_n_long,
                   sizeof(size_t));
-  /*
-  DPCT1124:49: cudaMemcpyAsync is migrated to asynchronous memcpy API. While the
-  origin API might be synchronous, it depends on the type of operand memory, so
-  you may need to call wait() on event return by memcpy API to ensure
-  synchronization behavior.
-  */
   (*stream)->memcpy(long_mem->total_long_segs_num, dev_mem->d_long_seg_count,
                   sizeof(unsigned int));
   (*stream)->throw_asynchronous();
@@ -647,10 +470,7 @@ void plmem_config_stream(size_t *max_range_grid_, size_t *max_num_cut_,
   *max_range_grid_ = max_range_grid;
   *max_num_cut_ = max_num_cut;
 
-  /*
-  DPCT1022:50: There is no exact match between the maxGridSize and the
-  max_nd_range size. Verify the correctness of the code.
-  */
+  // Should never be a problem sinse value is bigger in acpp, check just in case
   if (*max_range_grid_ > 2147483647) {
     fprintf(stderr, "Invalid memory config!\n");
     exit(1);
@@ -753,12 +573,7 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
 
   plmem_config_kernels(json);
   size_t gpu_free_mem, gpu_total_mem;
-  /*
-  DPCT1106:51: 'cudaMemGetInfo' was migrated with the Intel extensions for
-  device information which may not be supported by all compilers or runtimes.
-  You may need to adjust the code.
-  */
-  // dpct::get_current_device().get_memory_info(gpu_free_mem, gpu_total_mem);
+
   plmem_config_batch<false>(json, &num_stream, min_anchors_,
                             &max_anchors_stream, max_read_,
                             &long_seg_buffer_size);
@@ -807,13 +622,8 @@ void plmem_stream_initialize(size_t *max_total_n_, int *max_read_,
         .wait_and_throw();
   }
 
-  /*
-  DPCT1106:52: 'cudaMemGetInfo' was migrated with the Intel extensions for
-  device information which may not be supported by all compilers or runtimes.
-  You may need to adjust the code.
-  */
-  // dpct::get_current_device().get_memory_info(gpu_free_mem, gpu_total_mem);
 #ifdef DEBUG_PRINT
+  // No way to get this information in acpp
   // fprintf(stderr, "[Info] GPU free mem: %f GB, total mem: %f GB\n",
   //         (float)gpu_free_mem / OneG, (float)gpu_total_mem / OneG);
 #endif

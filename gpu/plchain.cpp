@@ -595,12 +595,6 @@ void free_stream_gpu(int n_threads) {
   plscore_free_misc(q_ct1);
 
   size_t gpu_free_mem, gpu_total_mem;
-  /*
-  DPCT1106:15: 'cudaMemGetInfo' was migrated with the Intel extensions for
-  device information which may not be supported by all compilers or runtimes.
-  You may need to adjust the code.
-  */
-  // dpct::get_current_device().get_memory_info(gpu_free_mem, gpu_total_mem);
 #ifdef DEBUG_PRINT
   // fprintf(stderr,
   //         "[Info] GPU free mem: %f GB, total mem: %f GB (after cleanup) \n",

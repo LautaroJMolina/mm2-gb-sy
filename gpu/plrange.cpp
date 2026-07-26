@@ -257,11 +257,6 @@ void plrange_async_range_selection(deviceMemPtr *dev_mem,
     sycl::range<3> DimGrid(1, 1, griddim);
 
     // Run kernel
-    /*
-    DPCT1049:0: The work-group size passed to the SYCL kernel may exceed the
-    limit. To get the device limit, query info::device::max_work_group_size.
-    Adjust the work-group size if needed.
-    */
   {
     *start_event_short = (*stream)->submit([&](sycl::handler &cgh) {
       const int d_max_dist_x_ptr_ct1 = d_vec[0];
@@ -312,12 +307,6 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc) {
         fprintf(stderr, "[Info] %s (%s:%d): Grid Dim: %zu Cut: %zu Anchors: %zu\n", __func__, __FILE__, __LINE__, DimGrid[2],
                 cut_num, total_n);
 #endif
-    /*
-    DPCT1049:1: The work-group size passed to the SYCL kernel may exceed the
-    limit. To get the device limit, query info::device::max_work_group_size.
-    Adjust the work-group size if needed.
-    */
-  
 
   {
     q_ct1.submit([&](sycl::handler &cgh) {

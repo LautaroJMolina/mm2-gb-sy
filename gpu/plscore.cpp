@@ -78,30 +78,26 @@ int32_t original_comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t
     return sc;
 }
 
-inline int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t aj_x, const int32_t aj_y,
+template<bool RelaxedSidCheck>
+inline int32_t comput_sc_unswitched(const int32_t ai_x, const int32_t ai_y, const int32_t aj_x, const int32_t aj_y,
                                 const int32_t sidi,  const int32_t sidj,
                                 const int32_t max_dist_x, const int32_t max_dist_y,
                                 const int32_t bw, const float chn_pen_gap,
-                                const float chn_pen_skip, const int is_cdna, const int n_seg) {
+                                const float chn_pen_skip, const int is_cdna) {
     const bool is_same_sid = sidi == sidj;
     const int32_t dq = ai_y - aj_y, dr = ai_x - aj_x;
-    /*
-    DPCT1017:16: The sycl::abs_diff call is used instead of the __sad call.
-    These two calls do not provide exactly the same functionality. Check the
-    potential precision and/or performance issues for the generated code.
-    */
     const int32_t dd = sycl::abs(dr - dq);
 
     if (dq <= 0 || dq > max_dist_x ||
         (is_same_sid && (dr == 0 || 
                         dq > max_dist_y || 
-                        dd > bw || 
-                        (n_seg > 1 && !is_cdna && dr > max_dist_y))))
+                        dd > bw ||
+                        (RelaxedSidCheck && dr > max_dist_y))))
         return INT32_MIN;
 
     const int32_t dg = dr < dq ? dr : dq;
     int32_t sc = MM_QSPAN < dg ? MM_QSPAN : dg;
-    
+
     if (dd || dg > MM_QSPAN) {
         int32_t log_pen = dd >= 1 ? (31 - sycl::clz(dd + 1)) : 0;
         int32_t lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
@@ -118,29 +114,24 @@ inline int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t a
 
 /* arithmetic functions end */
 
-inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range, 
+template<bool RelaxedSidCheck>
+inline void compute_sc_seg_one_wf_scan(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range,
                     const size_t start_idx, const size_t end_idx,
                     int32_t* f, uint16_t* p,
                     const Misc misc, sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
-    // init f and p
-    for (size_t i = start_idx + tid; i < end_idx; i += item_ct1.get_local_range(2)) {
-        f[i] = MM_QSPAN;
-        p[i] = 0;
-    }
-    sycl::group_barrier(item_ct1.get_sub_group());
     for (size_t i=start_idx; i < end_idx; i++) {
         int32_t range_i = range[i];
         for (int32_t j = tid; j < range_i; j += item_ct1.get_local_range(2)) {
-            int32_t sc = comput_sc(
-                                anchors_x[i+j+1], 
-                                anchors_y[i+j+1], 
+            int32_t sc = comput_sc_unswitched<RelaxedSidCheck>(
+                                anchors_x[i+j+1],
+                                anchors_y[i+j+1],
                                 anchors_x[i], 
                                 anchors_y[i],
                                 sid [i+j+1],
                                 sid [i],
-                                misc.max_dist_x, misc.max_dist_y, misc.bw, misc.chn_pen_gap, 
-                                misc.chn_pen_skip, misc.is_cdna, misc.n_seg);
+                                misc.max_dist_x, misc.max_dist_y, misc.bw, misc.chn_pen_gap,
+                                misc.chn_pen_skip, misc.is_cdna);
             if (sc == INT32_MIN) continue;
             sc += f[i];
             if (sc >= f[i+j+1] && sc != MM_QSPAN) {
@@ -151,40 +142,47 @@ inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* ancho
         }
         sycl::group_barrier(item_ct1.get_sub_group());
     }
-    
 }
 
-
-inline void compute_sc_seg_multi_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range, 
+inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range,
                     const size_t start_idx, const size_t end_idx,
-                    int32_t* f, uint16_t* p, 
+                    int32_t* f, uint16_t* p,
                     const Misc misc, sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
     // init f and p
-    for (size_t i = start_idx + tid; i < end_idx;
-         i += item_ct1.get_local_range(2)) {
+    for (size_t i = start_idx + tid; i < end_idx; i += item_ct1.get_local_range(2)) {
         f[i] = MM_QSPAN;
         p[i] = 0;
     }
-    /*
-    DPCT1065:17: Consider replacing sycl::nd_item::barrier() with
-    sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-    performance if there is no access to global memory.
-    */
-    sycl::group_barrier(item_ct1.get_group());
+    sycl::group_barrier(item_ct1.get_sub_group());
+
+    if (misc.n_seg > 1 && !misc.is_cdna) {
+        compute_sc_seg_one_wf_scan<true>(anchors_x, anchors_y, sid, range, start_idx, end_idx, f, p, misc, item_ct1);
+    } else {
+        compute_sc_seg_one_wf_scan<false>(anchors_x, anchors_y, sid, range, start_idx, end_idx, f, p, misc, item_ct1);
+    }
+}
+
+template<bool RelaxedSidCheck>
+inline void compute_sc_seg_multi_wf_scan(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range,
+                    const size_t start_idx, const size_t end_idx,
+                    int32_t* f, uint16_t* p,
+                    const Misc misc, sycl::nd_item<3> item_ct1){
+    int tid = item_ct1.get_local_id(2);
+
     for (size_t i=start_idx; i < end_idx; i++) {
         int32_t range_i = range[i];
         for (int32_t j = tid; j < range_i; j += item_ct1.get_local_range(2)) {
-            int32_t sc = comput_sc(
-                                anchors_x[i+j+1], 
-                                anchors_y[i+j+1], 
-                                anchors_x[i], 
+            int32_t sc = comput_sc_unswitched<RelaxedSidCheck>(
+                                anchors_x[i+j+1],
+                                anchors_y[i+j+1],
+                                anchors_x[i],
                                 anchors_y[i],
                                 sid [i+j+1],
                                 sid [i],
-                                misc.max_dist_x, misc.max_dist_y, misc.bw, misc.chn_pen_gap, 
-                                misc.chn_pen_skip, misc.is_cdna, misc.n_seg);
+                                misc.max_dist_x, misc.max_dist_y, misc.bw, misc.chn_pen_gap,
+                                misc.chn_pen_skip, misc.is_cdna);
             if (sc == INT32_MIN) continue;
             sc += f[i];
             if (sc >= f[i+j+1] && sc != MM_QSPAN) {
@@ -193,18 +191,30 @@ inline void compute_sc_seg_multi_wf(const int32_t* anchors_x, const int32_t* anc
 
             }
         }
-        /*
-        DPCT1118:2: SYCL group functions and algorithms must be encountered in
-        converged control flow. You may need to adjust the code.
-        */
-        /*
-        DPCT1065:18: Consider replacing sycl::nd_item::barrier() with
-        sycl::nd_item::barrier(sycl::access::fence_space::local_space) for
-        better performance if there is no access to global memory.
-        */
         sycl::group_barrier(item_ct1.get_group());
     }
-    
+}
+
+inline void compute_sc_seg_multi_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range,
+                    const size_t start_idx, const size_t end_idx,
+                    int32_t* f, uint16_t* p,
+                    const Misc misc, sycl::nd_item<3> item_ct1){
+    int tid = item_ct1.get_local_id(2);
+    int bid = item_ct1.get_group(2);
+
+    // init f and p
+    for (size_t i = start_idx + tid; i < end_idx; i += item_ct1.get_local_range(2)) {
+        f[i] = MM_QSPAN;
+        p[i] = 0;
+    }
+
+    sycl::group_barrier(item_ct1.get_group());
+
+    if (misc.n_seg > 1 && !misc.is_cdna) {
+        compute_sc_seg_multi_wf_scan<true>(anchors_x, anchors_y, sid, range, start_idx, end_idx, f, p, misc, item_ct1);
+    } else {
+        compute_sc_seg_multi_wf_scan<false>(anchors_x, anchors_y, sid, range, start_idx, end_idx, f, p, misc, item_ct1);
+    }
 }
 
 #define NUM_ANCHORS_PREFETCH 1024
@@ -325,7 +335,7 @@ void score_generation_short(
                                 , seg_t* long_seg, seg_t* long_seg_og, unsigned int *long_seg_count
                                 ,seg_t *mid_seg, unsigned int *mid_seg_count,
                                 const Misc misc, const int long_seg_cutoff,
-                                const int mid_seg_cutoff,
+                                const int mid_seg_cutoff, sycl::local_accessor<size_t, 1> long_seg_start_idx_shared, 
                                 sycl::nd_item<3> item_ct1){
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
@@ -336,8 +346,7 @@ void score_generation_short(
     sycl::atomic_ref<unsigned int, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::global_space> atomic_mid_seg_count(*mid_seg_count);
     sycl::atomic_ref<unsigned int, sycl::memory_order::relaxed, sycl::memory_scope::device, sycl::access::address_space::global_space> atomic_long_seg_count(*long_seg_count);
 
-    for (int segid = bid; segid < seg_count;
-         segid += item_ct1.get_group_range(2)) {
+    for (int segid = bid; segid < seg_count; segid += item_ct1.get_group_range(2)) {
         size_t start_idx = seg_start_arr[segid];
         if (start_idx == SIZE_MAX) continue; // start at a failed cut: continue to next iteration
         size_t end_idx = SIZE_MAX;
@@ -380,11 +389,13 @@ void score_generation_short(
                 }
             }
             // broadcast long_seg_start_idx to all scalar registers
-            long_seg_start_idx = sycl::group_broadcast(item_ct1.get_sub_group(), long_seg_start_idx, 0);
+            if (tid == 0) long_seg_start_idx_shared[0] = long_seg_start_idx;
+            sycl::group_barrier(item_ct1.get_sub_group());
+            long_seg_start_idx = long_seg_start_idx_shared[0];
+            sycl::group_barrier(item_ct1.get_sub_group());
             if (long_seg_start_idx == SIZE_MAX)
                 continue;  // failed to allocate long_seg buffer
-            for (uint64_t idx = tid; idx < end_idx - start_idx;
-                 idx += item_ct1.get_local_range(2)) {
+            for (uint64_t idx = tid; idx < end_idx - start_idx; idx += item_ct1.get_local_range(2)) {
                 a_x_long[long_seg_start_idx + idx] = anchors_x[start_idx + idx];
                 a_y_long[long_seg_start_idx + idx] = anchors_y[start_idx + idx];
                 sid_long[long_seg_start_idx + idx] = sid[start_idx + idx];
@@ -413,13 +424,8 @@ void score_generation_mid(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, i
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
 
-    for (int segid = bid; segid < *long_seg_count;
-         segid += item_ct1.get_group_range(2)) {
+    for (int segid = bid; segid < *long_seg_count; segid += item_ct1.get_group_range(2)) {
         seg_t seg = long_seg[segid];
-        /*
-        DPCT1118:3: SYCL group functions and algorithms must be encountered in
-        converged control flow. You may need to adjust the code.
-        */
         compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx,
                                 seg.end_idx, f, p, misc, item_ct1);
     }
@@ -433,13 +439,8 @@ void score_generation_long(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, 
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
 
-    for (int segid = bid; segid < *long_seg_count;
-         segid += item_ct1.get_group_range(2)) {
+    for (int segid = bid; segid < *long_seg_count; segid += item_ct1.get_group_range(2)) {
         seg_t seg = long_seg[segid];
-        /*
-        DPCT1118:4: SYCL group functions and algorithms must be encountered in
-        converged control flow. You may need to adjust the code.
-        */
         compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx,
                                 seg.end_idx, f, p, misc, item_ct1);
     }
@@ -469,11 +470,6 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
         segid[0] = bid;
     }
 
-    /*
-    DPCT1065:19: Consider replacing sycl::nd_item::barrier() with
-    sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-    performance if there is no access to global memory.
-    */
     sycl::group_barrier(item_ct1.get_group());
 
     sycl::atomic_ref<unsigned, sycl::memory_order::relaxed,
@@ -483,24 +479,11 @@ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* s
     while (segid[0] < *long_seg_count) {
         seg_t seg = long_seg[map[segid[0]]]; // sorted
         // seg_t seg = long_seg[segid]; // unsorted
-        /*
-        DPCT1118:5: SYCL group functions and algorithms must be encountered in
-        converged control flow. You may need to adjust the code.
-        */
         compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx,
                                 seg.end_idx, f, p, misc, item_ct1);
         seg_count++;
         if (tid == 0) segid[0] =
             atomic_curr_long_segid.fetch_add(1U);
-        /*
-        DPCT1118:6: SYCL group functions and algorithms must be encountered in
-        converged control flow. You may need to adjust the code.
-        */
-        /*
-        DPCT1065:20: Consider replacing sycl::nd_item::barrier() with
-        sycl::nd_item::barrier(sycl::access::fence_space::local_space) for
-        better performance if there is no access to global memory.
-        */
         sycl::group_barrier(item_ct1.get_group());
     }
 }
@@ -517,8 +500,7 @@ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid,
 
     int tid = item_ct1.get_local_id(2);
     int bid = item_ct1.get_group(2);
-    for (int segid = bid; segid < seg_count;
-         segid += item_ct1.get_group_range(2)) {
+    for (int segid = bid; segid < seg_count; segid += item_ct1.get_group_range(2)) {
         /* calculate the segement for current block */
         size_t start_idx = seg_start_arr[segid];
         if (start_idx == SIZE_MAX) continue; // start at a failed cut: continue to next iteration
@@ -588,6 +570,8 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
       const Misc misc_ptr_ct1 = *misc;
       const int long_seg_cutoff_ptr_ct1 = *long_seg_cutoff;
       const int mid_seg_cutoff_ptr_ct1 = *mid_seg_cutoff;
+      
+      sycl::local_accessor<size_t, 1> long_seg_start_idx_shared(sycl::range<1>(1), cgh);
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -621,7 +605,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 dev_mem_d_long_seg_og_ct16, dev_mem_d_long_seg_count_ct17,
                 dev_mem_d_mid_seg_ct18, dev_mem_d_mid_seg_count_ct19,
                 misc_ptr_ct1, long_seg_cutoff_ptr_ct1,
-                mid_seg_cutoff_ptr_ct1, item_ct1);
+                mid_seg_cutoff_ptr_ct1, long_seg_start_idx_shared, item_ct1);
           });
     });
     } else if (score_kernel_config.short_blockdim == 64) {
@@ -630,6 +614,8 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
       const Misc misc_ptr_ct1 = *misc;
       const int long_seg_cutoff_ptr_ct1 = *long_seg_cutoff;
       const int mid_seg_cutoff_ptr_ct1 = *mid_seg_cutoff;
+
+      sycl::local_accessor<size_t, 1> long_seg_start_idx_shared(sycl::range<1>(1), cgh);
 
       auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
       auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
@@ -663,7 +649,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                 dev_mem_d_long_seg_og_ct16, dev_mem_d_long_seg_count_ct17,
                 dev_mem_d_mid_seg_ct18, dev_mem_d_mid_seg_count_ct19,
                 misc_ptr_ct1, long_seg_cutoff_ptr_ct1,
-                mid_seg_cutoff_ptr_ct1, item_ct1);
+                mid_seg_cutoff_ptr_ct1, long_seg_start_idx_shared, item_ct1);
           });
     });
     } else {
@@ -726,11 +712,6 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                        });
     });
     } else if (score_kernel_config.mid_blockdim == 512){
-        /*
-        DPCT1049:7: The work-group size passed to the SYCL kernel may exceed the
-        limit. To get the device limit, query info::device::max_work_group_size.
-        Adjust the work-group size if needed.
-        */
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
       const Misc misc_ptr_ct1 = *misc;
@@ -755,11 +736,6 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr *dev_mem,
                        });
     });
     } else if (score_kernel_config.mid_blockdim == 1024){
-        /*
-        DPCT1049:8: The work-group size passed to the SYCL kernel may exceed the
-        limit. To get the device limit, query info::device::max_work_group_size.
-        Adjust the work-group size if needed.
-        */
 
     *stop_event_short = (*stream)->submit([&](sycl::handler &cgh) {
       const Misc misc_ptr_ct1 = *misc;
@@ -813,40 +789,33 @@ void plscore_async_long_forward_dp(deviceMemPtr *dev_mem,
 
 
     if (score_kernel_config.long_blockdim == 1024){
-    /*
-    DPCT1049:9: The work-group size passed to the SYCL kernel may exceed the
-    limit. To get the device limit, query info::device::max_work_group_size.
-    Adjust the work-group size if needed.
-    */
 
     (**event) = (*stream)->submit([&](sycl::handler &cgh) {
-      const Misc misc_ptr_ct1 = *misc;
-      unsigned *curr_long_segid_ptr_ct1 = curr_long_segid;
-
-      sycl::local_accessor<unsigned int, 1> segid_acc_ct1(sycl::range<1>(1), cgh);
-
-      auto dev_mem_d_ax_long_ct0 = dev_mem->d_ax_long;
-      auto dev_mem_d_ay_long_ct1 = dev_mem->d_ay_long;
-      auto dev_mem_d_sid_long_ct2 = dev_mem->d_sid_long;
-      auto dev_mem_d_range_long_ct3 = dev_mem->d_range_long;
-      auto dev_mem_d_long_seg_ct4 = dev_mem->d_long_seg;
-      auto dev_mem_d_long_seg_count_ct5 = dev_mem->d_long_seg_count;
-      auto dev_mem_d_f_long_ct6 = dev_mem->d_f_long;
-      auto dev_mem_d_p_long_ct7 = dev_mem->d_p_long;
-      auto dev_mem_d_map_ct8 = dev_mem->d_map;
-
-      cgh.parallel_for(
-          sycl::nd_range<3>(longDimGrid * sycl::range<3>(1, 1, 1024),
-                            sycl::range<3>(1, 1, 1024)),
-          [=](sycl::nd_item<3> item_ct1) {
-            score_generation_long_map<1024>(
-                dev_mem_d_ax_long_ct0, dev_mem_d_ay_long_ct1,
-                dev_mem_d_sid_long_ct2, dev_mem_d_range_long_ct3,
-                dev_mem_d_long_seg_ct4, dev_mem_d_long_seg_count_ct5,
-                dev_mem_d_f_long_ct6, dev_mem_d_p_long_ct7, dev_mem_d_map_ct8,
-                misc_ptr_ct1, curr_long_segid_ptr_ct1, segid_acc_ct1,
-                item_ct1);
-          });
+        const Misc misc_ptr_ct1 = *misc;
+        unsigned *curr_long_segid_ptr_ct1 = curr_long_segid;
+  
+        sycl::local_accessor<unsigned int, 1> segid_acc_ct1(sycl::range<1>(1), cgh);
+  
+        auto dev_mem_d_ax_long_ct0 = dev_mem->d_ax_long;
+        auto dev_mem_d_ay_long_ct1 = dev_mem->d_ay_long;
+        auto dev_mem_d_sid_long_ct2 = dev_mem->d_sid_long;
+        auto dev_mem_d_range_long_ct3 = dev_mem->d_range_long;
+        auto dev_mem_d_long_seg_ct4 = dev_mem->d_long_seg;
+        auto dev_mem_d_long_seg_count_ct5 = dev_mem->d_long_seg_count;
+        auto dev_mem_d_f_long_ct6 = dev_mem->d_f_long;
+        auto dev_mem_d_p_long_ct7 = dev_mem->d_p_long;
+        auto dev_mem_d_map_ct8 = dev_mem->d_map;
+  
+        cgh.parallel_for(
+                sycl::nd_range<3>(longDimGrid * sycl::range<3>(1, 1, 1024), sycl::range<3>(1, 1, 1024)),
+                    [=](sycl::nd_item<3> item_ct1) {
+                    score_generation_long_map<1024>(
+                        dev_mem_d_ax_long_ct0, dev_mem_d_ay_long_ct1,
+                        dev_mem_d_sid_long_ct2, dev_mem_d_range_long_ct3,
+                        dev_mem_d_long_seg_ct4, dev_mem_d_long_seg_count_ct5,
+                        dev_mem_d_f_long_ct6, dev_mem_d_p_long_ct7, dev_mem_d_map_ct8,
+                        misc_ptr_ct1, curr_long_segid_ptr_ct1, segid_acc_ct1, item_ct1);
+                });
     });
     } else {
         fprintf(stderr,
@@ -872,36 +841,31 @@ void plscore_async_naive_forward_dp(deviceMemPtr *dev_mem,
 
     // Run kernel
     // printf("Grid Dim, %d\n", DimGrid.x);
-    /*
-    DPCT1049:10: The work-group size passed to the SYCL kernel may exceed the
-    limit. To get the device limit, query info::device::max_work_group_size.
-    Adjust the work-group size if needed.
-    */
-  {
+    {
 
-    (*stream)->submit([&](sycl::handler &cgh) {
-      const Misc misc_ptr_ct1 = *misc;
-
-      auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
-      auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
-      auto dev_mem_d_sid_ct2 = dev_mem->d_sid;
-      auto dev_mem_d_range_ct3 = dev_mem->d_range;
-      auto dev_mem_d_cut_ct4 = dev_mem->d_cut;
-      auto dev_mem_d_f_ct5 = dev_mem->d_f;
-      auto dev_mem_d_p_ct6 = dev_mem->d_p;
-
-      cgh.parallel_for(sycl::nd_range<3>(shortDimGrid * DimBlock, DimBlock),
-                       [=](sycl::nd_item<3> item_ct1) {
-                         score_generation_naive(
-                             dev_mem_d_ax_ct0, dev_mem_d_ay_ct1,
-                             dev_mem_d_sid_ct2, dev_mem_d_range_ct3,
-                             dev_mem_d_cut_ct4, dev_mem_d_f_ct5,
-                             dev_mem_d_p_ct6, total_n, cut_num, misc_ptr_ct1,
-                             item_ct1);
-                       });
-    });
-  }
-  (*stream)->throw_asynchronous();
+        (*stream)->submit([&](sycl::handler &cgh) {
+          const Misc misc_ptr_ct1 = *misc;
+    
+          auto dev_mem_d_ax_ct0 = dev_mem->d_ax;
+          auto dev_mem_d_ay_ct1 = dev_mem->d_ay;
+          auto dev_mem_d_sid_ct2 = dev_mem->d_sid;
+          auto dev_mem_d_range_ct3 = dev_mem->d_range;
+          auto dev_mem_d_cut_ct4 = dev_mem->d_cut;
+          auto dev_mem_d_f_ct5 = dev_mem->d_f;
+          auto dev_mem_d_p_ct6 = dev_mem->d_p;
+    
+          cgh.parallel_for(sycl::nd_range<3>(shortDimGrid * DimBlock, DimBlock),
+                           [=](sycl::nd_item<3> item_ct1) {
+                             score_generation_naive(
+                                 dev_mem_d_ax_ct0, dev_mem_d_ay_ct1,
+                                 dev_mem_d_sid_ct2, dev_mem_d_range_ct3,
+                                 dev_mem_d_cut_ct4, dev_mem_d_f_ct5,
+                                 dev_mem_d_p_ct6, total_n, cut_num, misc_ptr_ct1,
+                                 item_ct1);
+                           });
+        });
+    }
+    (*stream)->throw_asynchronous();
 #ifdef DEBUG_VERBOSE
     fprintf(stderr, "[M::%s] score generation kernel launch success\n", __func__);
 #endif
