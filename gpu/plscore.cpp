@@ -114,36 +114,6 @@ inline int32_t comput_sc_unswitched(const int32_t ai_x, const int32_t ai_y, cons
 
 /* arithmetic functions end */
 
-template<bool RelaxedSidCheck>
-inline void compute_sc_seg_one_wf_scan(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range,
-                    const size_t start_idx, const size_t end_idx,
-                    int32_t* f, uint16_t* p,
-                    const Misc misc, sycl::nd_item<3> item_ct1){
-    int tid = item_ct1.get_local_id(2);
-    for (size_t i=start_idx; i < end_idx; i++) {
-        int32_t range_i = range[i];
-        for (int32_t j = tid; j < range_i; j += item_ct1.get_local_range(2)) {
-            int32_t sc = comput_sc_unswitched<RelaxedSidCheck>(
-                                anchors_x[i+j+1],
-                                anchors_y[i+j+1],
-                                anchors_x[i], 
-                                anchors_y[i],
-                                sid [i+j+1],
-                                sid [i],
-                                misc.max_dist_x, misc.max_dist_y, misc.bw, misc.chn_pen_gap,
-                                misc.chn_pen_skip, misc.is_cdna);
-            if (sc == INT32_MIN) continue;
-            sc += f[i];
-            if (sc >= f[i+j+1] && sc != MM_QSPAN) {
-                f[i+j+1] = sc;
-                p[i+j+1] = j+1;
-
-            }
-        }
-        sycl::group_barrier(item_ct1.get_sub_group());
-    }
-}
-
 inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range,
                     const size_t start_idx, const size_t end_idx,
                     int32_t* f, uint16_t* p,
@@ -157,32 +127,22 @@ inline void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* ancho
     }
     sycl::group_barrier(item_ct1.get_sub_group());
 
-    if (misc.n_seg > 1 && !misc.is_cdna) {
-        compute_sc_seg_one_wf_scan<true>(anchors_x, anchors_y, sid, range, start_idx, end_idx, f, p, misc, item_ct1);
-    } else {
-        compute_sc_seg_one_wf_scan<false>(anchors_x, anchors_y, sid, range, start_idx, end_idx, f, p, misc, item_ct1);
-    }
-}
-
-template<bool RelaxedSidCheck>
-inline void compute_sc_seg_multi_wf_scan(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range,
-                    const size_t start_idx, const size_t end_idx,
-                    int32_t* f, uint16_t* p,
-                    const Misc misc, sycl::nd_item<3> item_ct1){
-    int tid = item_ct1.get_local_id(2);
+    const bool relaxed_sid_check = (misc.n_seg > 1 && !misc.is_cdna);
 
     for (size_t i=start_idx; i < end_idx; i++) {
         int32_t range_i = range[i];
         for (int32_t j = tid; j < range_i; j += item_ct1.get_local_range(2)) {
-            int32_t sc = comput_sc_unswitched<RelaxedSidCheck>(
-                                anchors_x[i+j+1],
-                                anchors_y[i+j+1],
-                                anchors_x[i],
-                                anchors_y[i],
-                                sid [i+j+1],
-                                sid [i],
-                                misc.max_dist_x, misc.max_dist_y, misc.bw, misc.chn_pen_gap,
-                                misc.chn_pen_skip, misc.is_cdna);
+            int32_t sc = relaxed_sid_check
+                ? comput_sc_unswitched<true>(
+                        anchors_x[i+j+1], anchors_y[i+j+1], anchors_x[i], anchors_y[i],
+                        sid[i+j+1], sid[i],
+                        misc.max_dist_x, misc.max_dist_y, misc.bw, misc.chn_pen_gap,
+                        misc.chn_pen_skip, misc.is_cdna)
+                : comput_sc_unswitched<false>(
+                        anchors_x[i+j+1], anchors_y[i+j+1], anchors_x[i], anchors_y[i],
+                        sid[i+j+1], sid[i],
+                        misc.max_dist_x, misc.max_dist_y, misc.bw, misc.chn_pen_gap,
+                        misc.chn_pen_skip, misc.is_cdna);
             if (sc == INT32_MIN) continue;
             sc += f[i];
             if (sc >= f[i+j+1] && sc != MM_QSPAN) {
@@ -191,7 +151,7 @@ inline void compute_sc_seg_multi_wf_scan(const int32_t* anchors_x, const int32_t
 
             }
         }
-        sycl::group_barrier(item_ct1.get_group());
+        sycl::group_barrier(item_ct1.get_sub_group());
     }
 }
 
@@ -210,10 +170,31 @@ inline void compute_sc_seg_multi_wf(const int32_t* anchors_x, const int32_t* anc
 
     sycl::group_barrier(item_ct1.get_group());
 
-    if (misc.n_seg > 1 && !misc.is_cdna) {
-        compute_sc_seg_multi_wf_scan<true>(anchors_x, anchors_y, sid, range, start_idx, end_idx, f, p, misc, item_ct1);
-    } else {
-        compute_sc_seg_multi_wf_scan<false>(anchors_x, anchors_y, sid, range, start_idx, end_idx, f, p, misc, item_ct1);
+    const bool relaxed_sid_check = (misc.n_seg > 1 && !misc.is_cdna);
+
+    for (size_t i=start_idx; i < end_idx; i++) {
+        int32_t range_i = range[i];
+        for (int32_t j = tid; j < range_i; j += item_ct1.get_local_range(2)) {
+            int32_t sc = relaxed_sid_check
+                ? comput_sc_unswitched<true>(
+                        anchors_x[i+j+1], anchors_y[i+j+1], anchors_x[i], anchors_y[i],
+                        sid[i+j+1], sid[i],
+                        misc.max_dist_x, misc.max_dist_y, misc.bw, misc.chn_pen_gap,
+                        misc.chn_pen_skip, misc.is_cdna)
+                : comput_sc_unswitched<false>(
+                        anchors_x[i+j+1], anchors_y[i+j+1], anchors_x[i], anchors_y[i],
+                        sid[i+j+1], sid[i],
+                        misc.max_dist_x, misc.max_dist_y, misc.bw, misc.chn_pen_gap,
+                        misc.chn_pen_skip, misc.is_cdna);
+            if (sc == INT32_MIN) continue;
+            sc += f[i];
+            if (sc >= f[i+j+1] && sc != MM_QSPAN) {
+                f[i+j+1] = sc;
+                p[i+j+1] = j+1;
+
+            }
+        }
+        sycl::group_barrier(item_ct1.get_group());
     }
 }
 
