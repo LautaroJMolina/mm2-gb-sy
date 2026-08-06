@@ -418,15 +418,21 @@ int get_json_int(cJSON *json, const char name[]) {
 }
 
 void plmem_config_kernels(cJSON *json) {
+  sycl::device dev = sycl::device(sycl::default_selector_v);
   cJSON *range_config_json = cJSON_GetObjectItem(json, "range_kernel");
   range_kernel_config.blockdim = get_json_int(range_config_json, "blockdim");
+
+  if (range_kernel_config.blockdim > dev.get_info<sycl::info::device::max_work_group_size>()) {
+    fprintf(stderr, "[Error: gpu config] range_kernel:blockdim %d exceeds device limit of %zu\n", range_kernel_config.blockdim, dev.get_info<sycl::info::device::max_work_group_size>());
+    exit(1);
+  }
+
   range_kernel_config.cut_check_anchors =
       get_json_int(range_config_json, "cut_check_anchors");
   range_kernel_config.anchor_per_block =
       get_json_int(range_config_json, "anchor_per_block");
 
   cJSON *score_config_json = cJSON_GetObjectItem(json, "score_kernel");
-  sycl::device dev = sycl::device(sycl::default_selector_v);
 
   score_kernel_config.short_blockdim = dev.get_info<sycl::info::device::sub_group_sizes>().back();
 
